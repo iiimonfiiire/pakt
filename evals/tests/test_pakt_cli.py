@@ -64,6 +64,16 @@ def test_review_with_another_guide_changes_findings(tmp_path, capsys):
     assert "plain_words" in plain and "contractions" not in plain
 
 
+def test_review_adds_glossary_findings_to_the_verdict(tmp_path, capsys):
+    (tmp_path / "page.md").write_text("Sign in, then simply open **Settings**.\n")
+    (tmp_path / "g.toml").write_text('[[banned]]\nterm = "simply"\n')
+    cli.main(["review", "page.md", "--json"])
+    assert json.loads(capsys.readouterr().out)["verdict"] == "pass"
+    cli.main(["review", "page.md", "--json", "--glossary", "g.toml"])
+    data = json.loads(capsys.readouterr().out)
+    assert data["verdict"] == "revise" and data["findings"][0]["rule"] == "glossary_banned"
+
+
 def test_review_model_needs_a_key(tmp_path, capsys):
     (tmp_path / "page.md").write_text("Fine.\n")
     assert cli.main(["review", "page.md", "--model"]) == 2

@@ -13,7 +13,7 @@ from . import gaps as gaps_mod
 from . import release_notes as rn
 from .config import PROJECT_FILE, ConfigError, Settings, find_root, load_settings, require_api_key
 from .document import load_document, parse_document
-from .review import load_template, review
+from .review import load_template, review, verdict_for
 from .structure import detect_type, load_content_types
 from .styleguide import bundled_guides, get_guide
 from .terminology import check_terms, load_glossary, suggest_glossary
@@ -125,6 +125,7 @@ def cmd_review(args) -> int:
     glossary_path = Path(args.glossary) if args.glossary else s.glossary
     if glossary_path:
         report.findings += check_terms(doc, load_glossary(glossary_path))
+        report.verdict = verdict_for(report.scores, report.findings)
     _emit(json.dumps(report.to_dict(), indent=2) + "\n" if args.json else report.to_markdown(), args.out)
     return 1 if report.verdict == "fail" else 0
 
