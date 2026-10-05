@@ -1,0 +1,36 @@
+# PAKT eval configuration. Environment variables in .env override the models.
+
+[models]
+generator = "claude-haiku-4-5-20251001"
+judge = "claude-sonnet-5-5"
+
+[generation]
+max_tokens = 1500
+temperature = 0.0
+concurrency = 4
+
+[judge]
+max_tokens = 800
+temperature = 0.0
+prompt = "prompts/judge/v1.md"
+pass_threshold = 4
+
+[rules]
+max_sentence_words = 22
+max_agentless_passives = 1
+
+# USD per million tokens. Verify against current published pricing before quoting costs.
+[pricing."claude-haiku-4-5-20251001"]
+input = 1.00
+output = 5.00
+
+[pricing."claude-sonnet-5-5"]
+input = 3.00
+output = 15.00
+
+[paths]
+testset = "evals/data/testset.jsonl"
+spot_check = "evals/data/judge_spot_check.jsonl"
+prompts_dir = "prompts"
+cache_dir = "evals/.cache"
+results_dir = "evals/results"

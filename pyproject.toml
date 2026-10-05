@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pakt-evals"
+version = "0.1.0"
+description = "Prompt-evaluation harness for Signal-style documentation rewrites"
+requires-python = ">=3.11"
+dependencies = [
+  "anthropic>=0.40",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+pakt-eval = "pakt_evals.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["evals"]
+include = ["pakt_evals*"]
+
+[tool.pytest.ini_options]
+testpaths = ["evals/tests"]
