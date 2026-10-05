@@ -251,8 +251,8 @@ _CLOSING_CHATTER = re.compile(
 
 
 def check_preamble(text: str) -> RuleResult:
-    """Flag assistant chatter and throat-clearing openers or closers."""
-    units = text_units(text)
+    """Flag assistant chatter and throat-clearing openers or closers. Headings do not count as the opener."""
+    units = text_units(re.sub(r"^\s*#{1,6}\s.*$", "", text, flags=re.M))
     violations = []
     if units and _OPENING_CHATTER.match(units[0]):
         violations.append(f"preamble: {_clip(units[0], 60)}")
