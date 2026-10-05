@@ -132,7 +132,10 @@ def quote_from_violation(violation: str) -> str:
     """Pull the quoted text out of a rule violation such as 'contraction: don't'."""
     quote = violation.split(": ", 1)[1] if ": " in violation else violation
     quote = re.sub(r" \(use '[^']*'\)$", "", quote)
-    return quote[:-3] if quote.endswith("...") else quote
+    if quote.endswith("..."):
+        quote = quote[:-3]
+        quote = quote.rsplit(" ", 1)[0] if " " in quote else quote
+    return quote
 
 
 def locate(text: str, quote: str) -> int | None:

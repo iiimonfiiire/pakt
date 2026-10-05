@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "pakt",
+  "owner": {
+    "name": "PAKT contributors"
+  },
+  "plugins": [
+    {
+      "name": "pakt",
+      "source": "./",
+      "description": "Review, audit, rewrite, and draft product documentation against a pluggable style guide."
+    }
+  ]
+}

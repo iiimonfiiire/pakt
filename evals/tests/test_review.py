@@ -48,7 +48,7 @@ def test_front_matter_offsets_line_numbers():
 
 @pytest.mark.parametrize("violation, quote", [
     ("contraction: don't", "don't"),
-    ("23 words: A very long sentence...", "A very long sentence"),
+    ("23 words: A very long sentence that was cl...", "A very long sentence that was"),
     ("banned term: utilize (use 'use')", "utilize"),
     ("no fenced code example", "no fenced code example"),
 ])

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://anthropic.com/claude-code/plugin.schema.json",
+  "name": "pakt",
+  "version": "0.2.0",
+  "description": "Portable Agentic Knowledge Toolkit: review, audit, rewrite, and draft product documentation against a pluggable style guide (Signal by default).",
+  "author": {
+    "name": "PAKT contributors"
+  },
+  "keywords": ["documentation", "style-guide", "technical-writing", "release-notes", "microcopy", "api-docs", "knowledge-management"]
+}
