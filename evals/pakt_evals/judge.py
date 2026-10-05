@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import asdict, dataclass, field
 
-from .llm import Completion, LLMClient
+from pakt.llm import Completion, LLMClient, extract_json_object
 
 SCORE_FIELDS = ("meaning", "readability")
 
@@ -32,18 +31,8 @@ def build_judge_message(source: str, candidate: str) -> str:
     )
 
 
-def _extract_json_object(raw: str) -> str | None:
-    fenced = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw, re.S)
-    if fenced:
-        return fenced.group(1)
-    start, end = raw.find("{"), raw.rfind("}")
-    if start == -1 or end <= start:
-        return None
-    return raw[start : end + 1]
-
-
 def parse_judgment(raw: str) -> Judgment:
-    blob = _extract_json_object(raw)
+    blob = extract_json_object(raw)
     if blob is None:
         return Judgment(error="no JSON object in judge response")
     try:

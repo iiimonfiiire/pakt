@@ -8,11 +8,13 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
 
+from pakt.llm import LLMClient
+from pakt.rules import run_rules, sentence_stats
+from pakt.styleguide import StyleGuide
+
 from .config import Config
 from .judge import Judgment, judge
-from .llm import LLMClient
 from .prompts import PromptFile, build_user_message, extract_rewrite
-from .rules import RuleSettings, run_rules, sentence_stats
 
 CATEGORIES = {"kb_article", "release_note", "ui_microcopy", "api_doc", "error_message"}
 
@@ -92,8 +94,8 @@ class ItemResult:
         return all(r["passed"] for r in self.rules if r["rule"] == "key_terms")
 
 
-def score_text(text: str, item: TestItem, settings: RuleSettings) -> tuple[list[dict], dict]:
-    results = run_rules(text, item.must_keep, settings)
+def score_text(text: str, item: TestItem, guide: StyleGuide) -> tuple[list[dict], dict]:
+    results = run_rules(text, item.must_keep, guide)
     return [asdict(r) | {"violations": list(r.violations)} for r in results], sentence_stats(text)
 
 
@@ -129,7 +131,7 @@ def evaluate_one(
     result.gen_cached = completion.cached
     result.cost_usd = cfg.price(cfg.generator_model, completion.input_tokens, completion.output_tokens)
     result.output, result.format_ok = extract_rewrite(completion.text)
-    result.rules, result.stats = score_text(result.output, item, cfg.rules)
+    result.rules, result.stats = score_text(result.output, item, cfg.guide)
 
     if judge_client is None or rubric is None:
         return result
@@ -191,7 +193,7 @@ def score_canned_outputs(cfg: Config, outputs_path: Path, items: list[TestItem])
         if item is None:
             raise ValueError(f"{outputs_path.name}:{lineno}: unknown item_id {rec['item_id']!r}")
         output, format_ok = extract_rewrite(rec["output"])
-        rules, stats = score_text(output, item, cfg.rules)
+        rules, stats = score_text(output, item, cfg.guide)
         results.append(
             ItemResult(
                 item_id=item.id, category=item.category, variant=rec["variant"],

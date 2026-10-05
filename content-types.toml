@@ -1,0 +1,178 @@
+# Content types and their structural conventions.
+# These sit on top of the style guide: the guide says how to write, and a content
+# type says what shape a document of that kind must have. A requirement with a
+# `check` runs deterministically; one without needs judgment. A style guide can
+# replace any requirement by ID, or add new ones, in its own rules.toml.
+
+[kb_article]
+name = "KB article or guide"
+description = "Help-center articles, how-to guides, tutorials, and troubleshooting pages."
+path_hints = ["kb", "help", "guide", "guides", "how-to", "howto", "tutorial", "tutorials", "articles", "troubleshooting", "faq"]
+
+[[kb_article.requirements]]
+id = "kb_outcome_first"
+severity = "warning"
+summary = "Open with one sentence that says what the reader will achieve or learn."
+
+[[kb_article.requirements]]
+id = "kb_numbered_steps"
+severity = "error"
+summary = "Write a procedure as a numbered list, one action per step."
+fix = "Turn the bulleted steps into a numbered list."
+check = "steps_numbered"
+
+[[kb_article.requirements]]
+id = "kb_prerequisites"
+severity = "suggestion"
+summary = "List prerequisites, such as roles, plans, or settings, before the first step."
+
+[[kb_article.requirements]]
+id = "kb_confirm_result"
+severity = "suggestion"
+summary = "After the steps, say how the reader can confirm that it worked."
+
+[[kb_article.requirements]]
+id = "kb_troubleshooting_shape"
+severity = "warning"
+summary = "A troubleshooting article covers the symptom, the cause, the fix, and how to confirm the fix."
+
+[release_note]
+name = "Release notes"
+description = "Version announcements, changelogs, and what's-new pages."
+path_hints = ["release", "releases", "release-notes", "changelog", "changelogs", "whats-new", "news"]
+
+[[release_note.requirements]]
+id = "rn_version_title"
+severity = "error"
+summary = "Name the version in the title."
+fix = "Add the version number to the title, such as '# Product 2.4 release notes'."
+check = "title_has_version"
+
+[[release_note.requirements]]
+id = "rn_sections"
+severity = "error"
+summary = "Group changes under New, Improved, Fixed, and Breaking. Leave out empty groups."
+fix = "Move each change under one of the allowed headings."
+check = "allowed_headings"
+params = { allowed = ["New", "Improved", "Fixed", "Breaking"] }
+
+[[release_note.requirements]]
+id = "rn_breaking_migration"
+severity = "error"
+summary = "Every breaking change comes with a migration note that says what to do."
+fix = "Add the steps a reader takes to keep working after the upgrade."
+check = "section_mentions"
+params = { section = "Breaking", keywords = ["migrat", "to keep", "upgrade", "replace", "update your", "switch to", "instead"] }
+
+[[release_note.requirements]]
+id = "rn_no_commit_prefixes"
+severity = "warning"
+summary = "Leave no raw commit prefixes, such as 'feat:' or 'fix(api):', in published notes."
+fix = "Rewrite the line as a user-facing change."
+check = "no_commit_prefixes"
+
+[[release_note.requirements]]
+id = "rn_user_impact"
+severity = "warning"
+summary = "Describe each change by what it means for the reader, not by the internal change."
+
+[[release_note.requirements]]
+id = "rn_no_internal"
+severity = "warning"
+summary = "Leave out internal-only changes, such as refactors, tests, and build changes."
+
+[ui_microcopy]
+name = "UX microcopy"
+description = "UI strings: buttons, labels, error messages, empty states, tooltips, and toasts."
+path_hints = ["microcopy", "strings", "locales", "locale", "i18n", "l10n", "ui-text", "copy"]
+
+[[ui_microcopy.requirements]]
+id = "ui_length"
+severity = "error"
+summary = "Keep each string within the length limit for its kind."
+fix = "Cut the string to its core message."
+check = "string_length"
+params = { limits = { button = 25, label = 40, title = 60, placeholder = 50, tooltip = 120, toast = 100, error = 150, empty_state = 160 } }
+
+[[ui_microcopy.requirements]]
+id = "ui_button_punctuation"
+severity = "warning"
+summary = "Never end a button label with a period or an exclamation mark."
+fix = "Delete the final punctuation."
+check = "button_punctuation"
+
+[[ui_microcopy.requirements]]
+id = "ui_error_no_exclamation"
+severity = "warning"
+summary = "Never use an exclamation mark in an error message."
+fix = "Replace the exclamation mark with a period."
+check = "error_exclamation"
+
+[[ui_microcopy.requirements]]
+id = "ui_error_next_step"
+severity = "error"
+summary = "Every error message says what happened and what the reader can do next."
+
+[[ui_microcopy.requirements]]
+id = "ui_no_blame"
+severity = "warning"
+summary = "Never blame the reader. Describe the problem, not the mistake."
+
+[[ui_microcopy.requirements]]
+id = "ui_button_verb"
+severity = "warning"
+summary = "Start a button label with a verb that names the action."
+
+[[ui_microcopy.requirements]]
+id = "ui_empty_state_action"
+severity = "suggestion"
+summary = "An empty state says why the view is empty and offers the next action."
+
+[api_doc]
+name = "API documentation"
+description = "Endpoint reference, authentication, pagination, rate limits, and SDK reference pages."
+path_hints = ["api", "apis", "reference", "endpoints", "endpoint", "sdk", "rest"]
+
+[[api_doc.requirements]]
+id = "api_endpoint"
+severity = "error"
+summary = "Show the method and path of the endpoint."
+fix = "Add the method and path in backticks, such as `GET /v1/items`."
+check = "endpoint_signature"
+
+[[api_doc.requirements]]
+id = "api_params_table"
+severity = "error"
+summary = "List parameters in a table with name, type, required, and description columns."
+fix = "Add a parameter table with name, type, required, and description columns."
+check = "params_table"
+params = { columns = ["name", "type", "required", "description"] }
+
+[[api_doc.requirements]]
+id = "api_error_response"
+severity = "error"
+summary = "Document at least one error response with its status code and cause."
+fix = "Add the error status codes the endpoint returns, with the cause of each."
+check = "error_codes"
+
+[[api_doc.requirements]]
+id = "api_example"
+severity = "warning"
+summary = "Include a request or response example in a code block."
+fix = "Add a fenced code example."
+check = "code_example"
+
+[[api_doc.requirements]]
+id = "api_auth"
+severity = "warning"
+summary = "State the authentication the endpoint needs."
+
+[[api_doc.requirements]]
+id = "api_response_fields"
+severity = "warning"
+summary = "Describe every field of the success response."
+
+[general]
+name = "General documentation"
+description = "Any other prose. Only the style guide applies."
+path_hints = []

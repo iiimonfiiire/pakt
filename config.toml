@@ -1,4 +1,14 @@
-# PAKT eval configuration. Environment variables in .env override the models.
+# PAKT configuration. Environment variables in .env override the models.
+# A project can pick its own style guide in a .pakt.toml file. See docs/style-guides.md.
+
+[styleguide]
+active = "signal"
+
+[review]
+model = "claude-sonnet-5-5"
+max_tokens = 2000
+temperature = 0.0
+prompt = "prompts/review/v1.md"
 
 [models]
 generator = "claude-haiku-4-5-20251001"
@@ -15,10 +25,6 @@ temperature = 0.0
 prompt = "prompts/judge/v1.md"
 pass_threshold = 4
 
-[rules]
-max_sentence_words = 22
-max_agentless_passives = 1
-
 # USD per million tokens. Verify against current published pricing before quoting costs.
 [pricing."claude-haiku-4-5-20251001"]
 input = 1.00
@@ -31,6 +37,7 @@ output = 15.00
 [paths]
 testset = "evals/data/testset.jsonl"
 spot_check = "evals/data/judge_spot_check.jsonl"
+reviewer_dir = "evals/data/reviewer"
 prompts_dir = "prompts"
 cache_dir = "evals/.cache"
 results_dir = "evals/results"

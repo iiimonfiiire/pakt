@@ -10,10 +10,10 @@ from pathlib import Path
 
 from .config import Config, ConfigError, load_config, require_api_key
 from .judge import judge
-from .llm import AnthropicClient, CachedClient, CacheOnlyClient
+from pakt.llm import AnthropicClient, CachedClient, CacheOnlyClient
 from .prompts import discover_variants, load_prompt
 from .report import baseline, render_markdown, summarize, worst_failures, write_run
-from .rules import run_rules, strip_front_matter
+from pakt.rules import run_rules, strip_front_matter
 from .runner import estimate_cost, load_testset, run_eval, score_canned_outputs
 
 
@@ -81,7 +81,7 @@ def cmd_run(cfg: Config, args) -> int:
 
     results = run_eval(cfg, variants, items, gen_client, None if rubric is None else judge_client, rubric, progress)
     summary = summarize(results, cfg.judge_pass_threshold)
-    base = baseline(items, cfg.rules)
+    base = baseline(items, cfg.guide)
     run_id = args.run_id or _run_id()
     meta = {
         "run_id": run_id,
@@ -105,7 +105,7 @@ def cmd_score(cfg: Config, args) -> int:
     items = load_testset(cfg.testset)
     results = score_canned_outputs(cfg, Path(args.outputs), items)
     summary = summarize(results, cfg.judge_pass_threshold)
-    base = baseline(items, cfg.rules)
+    base = baseline(items, cfg.guide)
     run_id = args.run_id or f"offline-{_run_id()}"
     meta = {
         "run_id": run_id,
@@ -124,7 +124,7 @@ def cmd_lint(cfg: Config, args) -> int:
     failures = 0
     for name in args.files:
         text = strip_front_matter(Path(name).read_text(encoding="utf-8"))
-        for r in run_rules(text, (), cfg.rules):
+        for r in run_rules(text, (), cfg.guide):
             if r.rule == "key_terms" or r.passed:
                 continue
             failures += 1

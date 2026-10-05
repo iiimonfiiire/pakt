@@ -1,5 +1,6 @@
 import pytest
 
+from pakt.styleguide import default_guide
 from pakt_evals import rules as r
 from pakt_evals.runner import load_testset
 
@@ -203,10 +204,31 @@ def test_key_terms_case_insensitive_and_not_applicable_when_empty():
     assert not r.check_key_terms("anything", []).applicable
 
 
-def test_run_rules_covers_every_rule_once():
+def test_run_rules_covers_every_guide_rule_once():
+    guide = default_guide()
     names = [res.rule for res in r.run_rules("Click Save.", ["Save"])]
-    assert names == [*r.STYLE_RULES, "key_terms"]
+    assert names == [*(rule.id for rule in guide.checkable), "key_terms"]
     assert all(res.passed for res in r.run_rules("Click Save.", ["Save"]))
+
+
+@pytest.mark.parametrize("text, ok, applicable", [
+    ("## Set up single sign-on", True, True),
+    ("## Set Up Single Sign-On", False, True),
+    ("# Configure the API token", True, True),
+    ("## Export Your Notes From Fernbook", False, True),
+    ("Plain prose only.", True, False),
+])
+def test_heading_case(text, ok, applicable):
+    res = r.check_heading_case(text)
+    assert res.passed is ok and res.applicable is applicable
+
+
+def test_banned_terms():
+    res = r.check_banned_terms("Utilize the API in order to sync.", {"utilize": "use", "in order to": "to"})
+    assert not res.passed and len(res.violations) == 2
+    assert "(use 'use')" in res.violations[0]
+    assert r.check_banned_terms("Run `utilize --help`.", ["utilize"]).passed
+    assert not r.check_banned_terms("Anything.", {}).applicable
 
 
 def test_sentence_stats():
@@ -217,5 +239,5 @@ def test_sentence_stats():
 def test_planted_failure_modes_are_detected_on_sources(cfg):
     """Every failure mode labeled on a test item must trip the matching rule on its source."""
     for item in load_testset(cfg.testset):
-        failed = {res.rule for res in r.run_rules(item.source, item.must_keep, cfg.rules) if not res.passed}
+        failed = {res.rule for res in r.run_rules(item.source, item.must_keep, cfg.guide) if not res.passed}
         assert set(item.failure_modes) == failed, item.id

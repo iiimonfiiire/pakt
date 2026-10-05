@@ -1,5 +1,4 @@
 from pakt_evals.report import badness, baseline, percentile, render_markdown, summarize, worst_failures, write_run
-from pakt_evals.rules import RuleSettings
 from pakt_evals.runner import ItemResult, TestItem
 
 
@@ -64,7 +63,7 @@ def test_worst_failures_ranks_meaning_loss_above_style():
 
 def test_baseline_on_sources():
     items = [TestItem("a", "api_doc", "Don't do it."), TestItem("b", "api_doc", "Do it.")]
-    base = baseline(items, RuleSettings())
+    base = baseline(items)
     assert base["contractions"]["rate"] == 0.5
     assert base["_all_style_rules"]["passed"] == 1
 
