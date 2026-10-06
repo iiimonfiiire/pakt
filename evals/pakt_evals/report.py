@@ -7,10 +7,20 @@ import math
 from pathlib import Path
 from statistics import mean
 
-from .rules import STYLE_RULES, RuleSettings, run_rules
+from pakt.rules import run_rules
+from pakt.styleguide import StyleGuide
+
 from .runner import ItemResult, TestItem
 
-RULE_NAMES = [*STYLE_RULES, "key_terms"]
+
+def rule_names(results: list[ItemResult]) -> list[str]:
+    """Rule IDs in first-seen order, with key_terms last. The active guide decides which rules exist."""
+    names: list[str] = []
+    for r in results:
+        for rr in r.rules:
+            if rr["rule"] not in names and rr["rule"] != "key_terms":
+                names.append(rr["rule"])
+    return [*names, "key_terms"]
 
 
 def _rate(passed: int, total: int) -> float | None:
@@ -34,10 +44,10 @@ def percentile(values: list[float], q: float) -> float | None:
     return ordered[rank - 1]
 
 
-def summarize_variant(results: list[ItemResult], pass_threshold: int) -> dict:
+def summarize_variant(results: list[ItemResult], pass_threshold: int, names: list[str] | None = None) -> dict:
     ok = [r for r in results if not r.error]
     per_rule = {}
-    for name in RULE_NAMES:
+    for name in names or rule_names(results):
         applicable = [r for r in ok for rr in r.rules if rr["rule"] == name and rr["applicable"]]
         passed = [r for r in ok for rr in r.rules if rr["rule"] == name and rr["applicable"] and rr["passed"]]
         per_rule[name] = {"passed": len(passed), "applicable": len(applicable), "rate": _rate(len(passed), len(applicable))}
@@ -79,16 +89,18 @@ def summarize_variant(results: list[ItemResult], pass_threshold: int) -> dict:
 
 def summarize(results: list[ItemResult], pass_threshold: int = 4) -> dict[str, dict]:
     variants = sorted({r.variant for r in results})
-    return {v: summarize_variant([r for r in results if r.variant == v], pass_threshold) for v in variants}
+    names = rule_names(results)
+    return {v: summarize_variant([r for r in results if r.variant == v], pass_threshold, names) for v in variants}
 
 
-def baseline(items: list[TestItem], settings: RuleSettings) -> dict[str, dict]:
+def baseline(items: list[TestItem], guide: StyleGuide | None = None) -> dict[str, dict]:
     """Rule pass rates on the untouched source snippets: the floor every variant should beat."""
-    per_rule = {name: [0, 0] for name in STYLE_RULES}
+    per_rule: dict[str, list[int]] = {}
     all_pass = 0
     for item in items:
-        results = [r for r in run_rules(item.source, (), settings) if r.rule != "key_terms"]
+        results = [r for r in run_rules(item.source, (), guide) if r.rule != "key_terms"]
         for r in results:
+            per_rule.setdefault(r.rule, [0, 0])
             if r.applicable:
                 per_rule[r.rule][1] += 1
                 per_rule[r.rule][0] += r.passed
@@ -160,7 +172,8 @@ def render_markdown(
     lines += ["", "## Pass rate per rule", ""]
     head = ["Rule", *([("source baseline")] if base else []), *variants]
     lines += ["| " + " | ".join(head) + " |", "|" + "---|" * len(head)]
-    for name in RULE_NAMES:
+    names = list(summary[variants[0]]["rules"]) if variants else []
+    for name in names:
         cells = [f"`{name}`"]
         if base:
             b = base.get(name)

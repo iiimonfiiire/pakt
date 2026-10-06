@@ -1,0 +1,64 @@
+# Machine-readable rules for the Plainspoken example guide.
+
+[guide]
+id = "plainspoken"
+name = "Plainspoken"
+version = "1.0"
+document = "guide.md"
+description = "A minimal example guide with a conversational voice. It proves that guides are pluggable."
+
+[[rules]]
+id = "sentence_length"
+section = "Voice"
+severity = "error"
+summary = "Keep sentences under 25 words."
+fix = "Split the sentence."
+check = "sentence_length"
+params = { max_words = 24 }
+
+[[rules]]
+id = "passive_voice"
+section = "Voice"
+severity = "warning"
+summary = "Prefer active voice. Two passive sentences per document are fine."
+fix = "Name the actor and make it the subject."
+check = "passive_voice"
+params = { max_agentless = 2 }
+
+[[rules]]
+id = "plain_words"
+section = "Words"
+severity = "error"
+summary = "Never write 'utilize', 'leverage', or 'in order to'."
+check = "banned_terms"
+params = { terms = { "utilize" = "use", "leverage" = "use", "in order to" = "to" } }
+
+[[rules]]
+id = "heading_case"
+section = "Formatting"
+severity = "warning"
+summary = "Use sentence case in headings."
+fix = "Lowercase every word except the first and proper nouns."
+check = "heading_case"
+
+[[rules]]
+id = "link_text"
+section = "Formatting"
+severity = "error"
+summary = "Name the destination in link text."
+fix = "Use link text that names the destination."
+check = "link_text"
+
+[[rules]]
+id = "numerals"
+section = "Words"
+severity = "suggestion"
+summary = "Use numerals for every number."
+
+# A guide can replace a content type's structural requirements by ID.
+[[content_types.release_note.requirements]]
+id = "rn_sections"
+severity = "error"
+summary = "Group changes under Added, Changed, Fixed, and Removed."
+check = "allowed_headings"
+params = { allowed = ["Added", "Changed", "Fixed", "Removed"] }

@@ -1,0 +1,8 @@
+{"id": "kb-r01", "variant": "fixture", "rules": ["heading_case", "contractions", "kb_numbered_steps", "kb_outcome_first"]}
+{"id": "kb-r02", "variant": "fixture", "rules": ["one_term_per_concept", "numerals"]}
+{"id": "kb-r07", "variant": "fixture", "rules": []}
+{"id": "rn-r03", "variant": "fixture", "rules": ["rn_no_internal", "acronyms"]}
+{"id": "ui-r01", "variant": "fixture", "rules": ["preamble", "ui_button_punctuation", "ui_error_no_exclamation", "ui_error_next_step"]}
+{"id": "ui-r06", "variant": "fixture", "rules": ["ui_empty_state_action"]}
+{"id": "api-r03", "variant": "fixture", "rules": ["api_auth", "api_response_fields", "one_term_per_concept"]}
+{"id": "api-r08", "variant": "fixture", "rules": ["monospace"]}

@@ -2,13 +2,18 @@
 
 This walkthrough explains what the PAKT eval harness does and why it works the way it does. It assumes no prior experience with evals. Each section stands alone, so you can jump to the part you need.
 
+The harness is the measurement layer of PAKT. The skills and the `pakt` CLI are the product. The harness proves how accurate they are, with two evals:
+
+- **Reviewer eval** – How often the reviewers find real rule violations, and how often they raise false alarms. For details, see [Reviewer evals](#reviewer-evals).
+- **Rewrite eval** – Which prompt rewrites messy docs into the active style best, without changing what the docs say. Most of this walkthrough covers it.
+
 ## What an eval is
 
 An eval is a repeatable test for a prompt. You run a prompt on a fixed set of inputs, score every output the same way, and compare the scores.
 
 Evals replace gut feel. Without one, a prompt change looks better because the one example you tried looks better. With one, you see the effect across every input, including the ones the change broke.
 
-This harness tests one task: rewriting a messy documentation snippet into [Signal style](https://github.com/iiimonfiiire/signal-style-guide). A good rewrite must do two things at once:
+The rewrite eval tests one task: rewriting a messy documentation snippet into Signal style. A good rewrite must do two things at once:
 
 - **Follow the style** – Short sentences, active voice, no contractions, the Oxford comma, and the other Signal rules.
 - **Keep the meaning** – Every fact, number, identifier, and constraint survives. Nothing new appears.
@@ -79,7 +84,9 @@ The harness uses two kinds of scorer. Rule checks are cheap, exact, and narrow. 
 
 ### Rule checks
 
-The rule checks live in `evals/pakt_evals/rules.py`. Each check is a small function that takes text and returns a pass or fail with a list of violations. Before any check runs, the harness masks code blocks, inline code, and URLs. A literal command such as `git commit --amend` then never triggers a prose rule.
+The rule checks live in `pakt/rules.py`. Each check is a small function that takes text and returns a pass or fail with a list of violations. Before any check runs, the harness masks code blocks, inline code, and URLs. A literal command such as `git commit --amend` then never triggers a prose rule.
+
+The active guide's `rules.toml` decides which checks run, under which rule IDs, and with which thresholds. The list below describes the bundled Signal guide.
 
 - **`sentence_length`** – Fails any sentence over 22 words. Limit: sentence splitting is heuristic and can misjudge unusual abbreviations.
 - **`em_dash`** – Fails a spaced em dash. It also fails hyphens that stand in for a dash, and two em dashes in one sentence. Limit: the check cannot tell whether a single dash marks a real tone shift.
@@ -95,9 +102,10 @@ The rule checks live in `evals/pakt_evals/rules.py`. Each check is a small funct
 - **`bold_leadin`** – Fails a bold bullet lead-in followed by a colon or period instead of an en dash. It applies only when such a bullet exists.
 - **`latin_abbrev`** – Fails `e.g.` or `i.e.` without a following comma. It applies only when one appears.
 - **`link_text`** – Fails generic link text such as `click here`.
+- **`heading_case`** – Fails a heading in Title Case. Limit: a heading full of proper nouns can misfire.
 - **`key_terms`** – Fails when any `must_keep` string is missing from the output. This check is a cheap meaning signal, not a style rule.
 
-Some Signal rules have no check, because a regex cannot judge them well. These include sentence case in headings, one term per concept, numeral style, and conclusion-first ordering. The judge's readability score covers some of this ground.
+Some Signal rules have no check, because a regex cannot judge them well. These include one term per concept, numeral style, and conclusion-first ordering. In `rules.toml`, they are judgment rules. The judge's readability score covers some of this ground, and the reviewer eval measures them directly.
 
 > **Warning:** A rule check proves only that a pattern is absent. A rewrite can pass every check and still be bad writing, or wrong.
 
@@ -192,6 +200,65 @@ If the rule checks disagree with your labels, decide which side is wrong. Fix th
 5. Run it and compare with `pakt-eval run --variants v2,v5`.
 
 Change one thing per variant. If v5 changes both the rules and the examples, you cannot tell which change caused the result.
+
+## Reviewer evals
+
+A reviewer reads a document and reports rule violations. The reviewer eval checks those reports against hand labels, so a team knows how far to trust a review.
+
+### The reviewer sets
+
+The sets live in `evals/data/reviewer/`, with one JSONL file per content type. The script `evals/tools/build_reviewer_sets.py` generates them and is the source of truth.
+
+There are 32 documents, eight per content type. Two documents in each type are clean, with no violations, so the eval can catch false alarms. Each record has these fields:
+
+- **`id`** – A stable name such as `rn-r03`.
+- **`content_type`** – One of `kb_article`, `release_note`, `ui_microcopy`, or `api_doc`.
+- **`text`** – The whole document, written by hand for a fictional product.
+- **`violations`** – The rule IDs that the document breaks. A label can name a guide rule or a content-type requirement.
+- **`notes`** – Optional. Why a judgment label applies.
+- **`path`** – Optional. A file name that sets the input format, such as `locales/en.json` for a JSON string file.
+
+The labels mix both kinds of rule. A check-kind rule, such as `contractions`, has a deterministic check. A judgment-kind rule, such as `one_term_per_concept`, needs judgment from a model or a person.
+
+### How scoring works
+
+The eval scores pairs of a document and a rule ID:
+
+- **True positive** – The reviewer reports a rule that the labels list.
+- **False positive** – The reviewer reports a rule that the labels do not list.
+- **False negative** – The labels list a rule that the reviewer missed.
+
+From these counts, the report computes precision, recall, and F1. It splits them by rule kind, by content type, and by rule. It also counts the clean documents that got any finding, and it lists every document where the reviewer and the labels disagree.
+
+> **Note:** Pairs ignore how often a rule fires in one document and where. A reviewer that reports the right rule on the wrong sentence still scores a true positive. Line-level matching is future work.
+
+### Three ways to run it
+
+- **Checks only** – `pakt-eval review-eval` runs the deterministic layer offline. It needs no key and costs nothing.
+- **With a model** – `pakt-eval review-eval --mode model` adds the model review from `prompts/review/v1.md`. Preview it with `--dry-run`. Responses land in the cache, like every other model call.
+- **Canned predictions** – `pakt-eval review-eval --predictions FILE` scores predictions from anywhere, such as a skill run in Claude Code. Each line holds an `id` and a `rules` list. The file `evals/data/reviewer/sample_predictions.jsonl` is a hand-written fixture that shows the format. It is not a model run.
+
+### How to read the result
+
+Read the split by rule kind first.
+
+- **Check rules** – The test suite requires the checks to find exactly the check-kind labels in every document. Check precision and recall on these sets are therefore 100 percent by construction. That proves the checks match the labels, not that they work on every real document.
+- **Judgment rules** – Only the model layer can score here. Checks alone show 0 percent recall on judgment rules, which is the gap that the model must close.
+
+Then look at the disagreements. A missed label can mean a weak reviewer or a wrong label. Decide which one it is before you change the prompt.
+
+### Limits
+
+- **Small sets** – Eight documents per type detect only large differences, as with the rewrite set.
+- **One labeler** – The toolkit author wrote every label. Have a second writer relabel the sets before you trust a judgment-rule number.
+- **Guide-specific labels** – The labels use Signal rule IDs. A team with its own guide needs its own labeled set.
+
+### How to add a reviewer test case
+
+1. Open `evals/tools/build_reviewer_sets.py`.
+2. Add a record to the list for its content type, with a new `id`, the `text`, and its `violations`.
+3. Run `python evals/tools/build_reviewer_sets.py`.
+4. Run `pytest`. The suite checks that every label is a known rule ID, and that the checks find exactly the check-kind labels.
 
 ## Results
 

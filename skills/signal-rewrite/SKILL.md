@@ -1,30 +1,26 @@
 ---
 name: signal-rewrite
-description: Rewrite a messy documentation snippet (KB article, release note, UI string, API doc, or error message) into Signal style while keeping its meaning. Use when asked to clean up, tighten, or "Signal-ify" docs text.
+description: Rewrite a messy documentation snippet, such as a KB article, release note, UI string, API doc, or error message, so it follows the team's active style guide (Signal by default) while keeping every fact. Use when asked to clean up, tighten, fix the style of, or "Signal-ify" docs text.
 ---
 
-# Signal rewrite
+# Rewrite to the active guide
 
-Rewrite the snippet the user gives you so it follows the Signal style guide. Keep every fact, number, identifier, UI label, and constraint. Add nothing.
+Rewrite the text that the person gives you so it follows the active style guide. Keep every fact, number, identifier, UI label, and constraint. Add nothing.
 
-## Rules
+## 1. Load the guide
 
-The canonical prompt lives in `prompts/v3-few-shot.md` in the PAKT repo, and it holds the full rule list and worked examples. The short version follows.
+Follow `reference/active-guide.md` at the PAKT root, and read the active guide in full. Every style decision comes from that guide. When Signal is active, `prompts/v3-few-shot.md` at the PAKT root shows three worked examples of a messy input and its rewrite.
 
-- **Sentences** – 20 words or fewer. Split anything longer.
-- **Voice** – Active voice. Use passive voice only when the actor is unknown.
-- **Reader** – Address the reader as "you" with an imperative verb.
-- **Contractions** – Never. Write "do not" and "it is".
-- **Lists in prose** – Always use the Oxford comma.
-- **Em dash** – Only for a mid-sentence tone shift, with no spaces around it.
-- **Flow** – No back-references such as `as mentioned above` or `the latter`.
-- **Directness** – Conclusion or action first. No preambles, filler, or hedging.
-- **Symbols** – No ampersands. Follow `e.g.` and `i.e.` with a comma.
-- **Formatting** – Code, commands, and error codes in backticks. UI labels in bold. Numbered lists only for ordered steps.
-- **Shape** – Keep the content type. An error message stays an error message.
+## 2. Rewrite
+
+- **Keep the shape** – An error message stays an error message, and a UI string stays short. A release note keeps its version and sections.
+- **Keep the facts** – Before you write, list every fact in the source. After you write, check that each one survived unchanged.
+- **Ask about gaps** – When a sentence is ambiguous, ask instead of guessing.
+
+## 3. Check the result
+
+Save the rewrite to a file, and run `pakt lint <file>`. Fix every finding, then run the command again until it reports `clean`.
 
 ## Output
 
-Return only the rewritten snippet. Do not explain the changes unless the user asks.
-
-After the rewrite, you can check it with the PAKT rule checker: `pakt-eval lint <file>`.
+Return only the rewritten text. Explain the changes only when the person asks.

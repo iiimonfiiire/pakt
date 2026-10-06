@@ -2,28 +2,49 @@
 
 Short definitions of the terms used in PAKT and its docs, in alphabetical order.
 
+- **Active guide** – The style guide that every PAKT skill and command applies right now. A command option, the project's `.pakt.toml`, or `config.toml` picks it. Signal is the default.
 - **Anchor** – A written description of what one score level looks like in a rubric. Anchors make a score mean the same thing on every item.
 - **Baseline** – The score of a reference point that a change must beat. In PAKT, the source baseline is how often the untouched messy snippets pass each rule.
 - **Cache** – Saved model responses on disk. A repeated request reads the saved response instead of calling the API again.
 - **Chain-of-thought** – A prompting technique that asks the model to reason step by step before it answers. The PAKT variant v4 uses a planning form of it.
+- **Check rule** – A rule with a deterministic check in the guide's `rules.toml`. The `pakt` CLI applies it offline.
+- **Content type** – A category of document with its own structural conventions. PAKT knows KB articles, release notes, UX microcopy, API docs, and general docs.
 - **Deterministic check** – A scorer that always gives the same result for the same input, such as a regex rule. It needs no model call.
 - **Eval** – A repeatable test for a prompt or model. It runs fixed inputs, scores every output the same way, and compares the scores.
+- **F1** – One number that balances precision and recall. It drops sharply when either one is low.
+- **False positive** – A finding for a rule that the text does not break. Too many false positives teach writers to ignore a reviewer.
 - **Few-shot prompting** – Including a small number of worked examples in the prompt to show the model what a good answer looks like.
+- **Finding** – One problem that a review reports. It carries a rule ID, a severity, a line, a quote, and a fix.
 - **Format compliance** – Whether an output follows the required structure. In PAKT, the rewrite must sit inside `<rewrite>` tags.
-- **Golden set** – A test set where every input has a reference answer that a human approved. PAKT's test set has no reference answers, so it is not a golden set.
+- **Gap candidate** – A topic that the docs may miss or that a change may have made stale. Each candidate cites the source items that revealed it.
+- **Golden set** – A test set where every input has a reference answer that a human approved. PAKT's test sets have no reference answers, so they are not golden sets.
 - **Hallucination** – Content that a model states as fact without support from its input. The judge reports these as `added_facts`.
+- **Human gate** – A step that only a person can complete. In PAKT, release notes stay a draft until a named person approves them.
 - **Hypothesis** – A prediction, written before a run, about what a prompt change will do. A run can then confirm it or prove it wrong.
+- **Inferred** – A label for any claim that rests on keywords, dates, or reasoning instead of a literal match. Confirm an inferred claim before you act on it.
+- **Judgment rule** – A rule without a deterministic check. Claude or a person applies it.
+- **Label** – The hand-written answer for one test item, such as the rule IDs that a document breaks.
 - **Latency** – The time a model call takes from request to response.
 - **Leakage** – Test items appearing in the prompt or training data. Leakage inflates scores, because the model has seen the answers.
 - **LLM-as-judge** – Using a language model to score another model's output against a rubric. It handles qualities that rules cannot, such as meaning, but it has biases.
 - **Pass rate** – The share of items that pass a check, given as a percentage.
+- **Plugin** – A package of Claude Code skills that a team installs in one step. PAKT ships as one.
 - **Pointwise scoring** – Scoring each output alone on a fixed scale. The alternative is pairwise scoring, which asks a judge to pick the better of two outputs.
+- **Precision** – The share of reported findings that are real violations.
+- **Product glossary** – A team's list of preferred terms, banned variants, and definitions. The `terminology-check` skill builds and enforces it.
 - **Prompt variant** – One version of a prompt under test. PAKT keeps each variant in its own file under `prompts/`.
+- **Recall** – The share of real violations that a reviewer reports.
 - **Regression** – A change that makes a result worse than it was before. Evals exist largely to catch regressions before users do.
 - **Rubric** – The written scoring guide a judge follows. It names the dimensions, the scale, and an anchor for each level.
+- **Rule ID** – The stable name of one rule, such as `sentence_length` or `rn_sections`. Every finding and every label cites one.
+- **Rules file** – The `rules.toml` file of a style guide. It lists every rule with its ID, severity, summary, and optional check.
 - **Self-preference bias** – A judge model's tendency to rate its own outputs, or outputs like its own, higher than others.
+- **Severity** – How much a rule matters: error, warning, or suggestion. Severity drives scores and verdicts.
+- **Skill** – A folder with a `SKILL.md` file that teaches Claude one task. Claude loads a skill when a request matches its description.
 - **Spot check** – A small, hand-labeled sample used to test whether a judge agrees with human judgment.
+- **Structural requirement** – A convention that a content type demands, such as a version number in a release-note title.
 - **Temperature** – A setting that controls output randomness. PAKT uses 0 to make runs as repeatable as possible.
-- **Test set** – The fixed collection of inputs an eval runs on. PAKT's test set holds 25 messy documentation snippets.
+- **Test set** – The fixed collection of inputs an eval runs on. PAKT has a rewrite set of 25 snippets and reviewer sets of 32 documents.
 - **Token** – The unit a model reads and writes, roughly four characters of English text. API cost is billed per token.
+- **Verdict** – The overall result of a review: pass, revise, or fail.
 - **Zero-shot prompting** – Asking a model to do a task with instructions only, without examples.

@@ -8,12 +8,16 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+from pakt.llm import AnthropicClient, CachedClient, CacheOnlyClient
+from pakt.review import load_template
+from pakt.rules import run_rules, strip_front_matter
+from pakt.structure import load_content_types
+
+from . import review_eval
 from .config import Config, ConfigError, load_config, require_api_key
 from .judge import judge
-from .llm import AnthropicClient, CachedClient, CacheOnlyClient
 from .prompts import discover_variants, load_prompt
 from .report import baseline, render_markdown, summarize, worst_failures, write_run
-from .rules import run_rules, strip_front_matter
 from .runner import estimate_cost, load_testset, run_eval, score_canned_outputs
 
 
@@ -81,7 +85,7 @@ def cmd_run(cfg: Config, args) -> int:
 
     results = run_eval(cfg, variants, items, gen_client, None if rubric is None else judge_client, rubric, progress)
     summary = summarize(results, cfg.judge_pass_threshold)
-    base = baseline(items, cfg.rules)
+    base = baseline(items, cfg.guide)
     run_id = args.run_id or _run_id()
     meta = {
         "run_id": run_id,
@@ -105,7 +109,7 @@ def cmd_score(cfg: Config, args) -> int:
     items = load_testset(cfg.testset)
     results = score_canned_outputs(cfg, Path(args.outputs), items)
     summary = summarize(results, cfg.judge_pass_threshold)
-    base = baseline(items, cfg.rules)
+    base = baseline(items, cfg.guide)
     run_id = args.run_id or f"offline-{_run_id()}"
     meta = {
         "run_id": run_id,
@@ -124,7 +128,7 @@ def cmd_lint(cfg: Config, args) -> int:
     failures = 0
     for name in args.files:
         text = strip_front_matter(Path(name).read_text(encoding="utf-8"))
-        for r in run_rules(text, (), cfg.rules):
+        for r in run_rules(text, (), cfg.guide):
             if r.rule == "key_terms" or r.passed:
                 continue
             failures += 1
@@ -164,8 +168,64 @@ def cmd_judge_check(cfg: Config, args) -> int:
     return 0
 
 
+def cmd_review_eval(cfg: Config, args) -> int:
+    """Measure reviewer precision and recall on the labeled reviewer sets."""
+    types = load_content_types(cfg.guide, cfg.root)
+    items = review_eval.load_reviewer_sets(cfg.reviewer_dir, cfg.guide, types)
+    if args.types:
+        wanted = {t.strip() for t in args.types.split(",")}
+        items = [i for i in items if i.content_type in wanted]
+    if args.ids:
+        wanted = {i.strip() for i in args.ids.split(",")}
+        items = [i for i in items if i.id in wanted]
+    errors: list[str] = []
+    if args.predictions:
+        mode = f"canned predictions from {Path(args.predictions).name} (no model calls)"
+        predictions = review_eval.load_predictions(Path(args.predictions))
+    elif args.mode == "checks":
+        mode = "deterministic checks only (no model calls)"
+        predictions, errors = review_eval.run_predictions(items, cfg.guide, types)
+    else:
+        mode = f"checks plus model review ({cfg.review_model})"
+        print(f"Plan: {len(items)} review call(s) with {cfg.review_model}")
+        print("  (cached requests cost nothing)")
+        if args.dry_run:
+            print("Dry run: no API calls made.")
+            return 0
+        inner = CacheOnlyClient() if args.cache_only else AnthropicClient(require_api_key())
+        client = CachedClient(inner, cfg.cache_dir, "reviews")
+        predictions, errors = review_eval.run_predictions(
+            items, cfg.guide, types, client,
+            progress=lambda item_id, n: print(f"  [{n}/{len(items)}] {item_id}", flush=True),
+            model=cfg.review_model, template=load_template(cfg.review_prompt),
+            max_tokens=cfg.review_max_tokens, temperature=0.0,
+        )
+    metrics = review_eval.score(items, predictions, cfg.guide, types)
+    metrics["errors"] = errors
+    run_id = args.run_id or f"review-{args.mode if not args.predictions else 'canned'}-{_run_id()}"
+    meta = {
+        "run_id": run_id,
+        "mode": mode,
+        "style guide": cfg.guide.label,
+        "review prompt": f"{cfg.review_prompt.name} [{load_prompt(cfg.review_prompt).sha}]",
+        "items": str(len(items)),
+    }
+    md = review_eval.render_markdown(metrics, meta)
+    live = args.mode == "model" and not args.predictions
+    out_dir = Path(args.out) if args.out else (cfg.results_dir / run_id if live else cfg.results_dir / "scratch" / run_id)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    (out_dir / "report.md").write_text(md, encoding="utf-8")
+    payload = {"meta": meta, "metrics": metrics, "predictions": {k: sorted(v) for k, v in predictions.items()}}
+    (out_dir / "summary.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    print(md)
+    print(f"Wrote {out_dir / 'report.md'}")
+    for e in errors:
+        print(f"warning: {e}", file=sys.stderr)
+    return 1 if errors and len(errors) == len(items) else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="pakt-eval", description="Evaluate Signal-rewrite prompt variants.")
+    p = argparse.ArgumentParser(prog="pakt-eval", description="Measure the PAKT rewriter prompts and reviewers.")
     sub = p.add_subparsers(dest="command", required=True)
 
     sub.add_parser("variants", help="list prompt variants and their hypotheses")
@@ -191,6 +251,17 @@ def build_parser() -> argparse.ArgumentParser:
     jc = sub.add_parser("judge-check", help="measure judge agreement with hand labels")
     jc.add_argument("--dry-run", action="store_true")
     jc.add_argument("--cache-only", action="store_true")
+
+    re_ = sub.add_parser("review-eval", help="measure reviewer precision and recall on labeled documents")
+    re_.add_argument("--mode", choices=["checks", "model"], default="checks",
+                     help="checks: offline, deterministic only; model: checks plus a model review")
+    re_.add_argument("--predictions", help="score a JSONL of canned predictions instead of running a reviewer")
+    re_.add_argument("--types", help="comma-separated content types")
+    re_.add_argument("--ids", help="comma-separated item ids")
+    re_.add_argument("--dry-run", action="store_true")
+    re_.add_argument("--cache-only", action="store_true")
+    re_.add_argument("--run-id")
+    re_.add_argument("--out")
     return p
 
 
@@ -200,6 +271,7 @@ COMMANDS = {
     "score": cmd_score,
     "lint": cmd_lint,
     "judge-check": cmd_judge_check,
+    "review-eval": cmd_review_eval,
 }
 
 
