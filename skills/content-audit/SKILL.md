@@ -29,7 +29,7 @@ Add `--glossary <file>` when the project has a glossary. The output holds a revi
 
 ## 4. Run the judgment pass on the worst files
 
-Take the worst files in the ranked list, up to the agreed depth. Review each one with the matching reviewer skill: `review-kb-article`, `review-release-notes`, `review-ui-microcopy`, or `review-api-docs`. For a file of type `general`, apply only the judgment rules of the guide.
+Take the worst files in the ranked list, up to the agreed depth. Review each one with the matching reviewer skill: `review-kb-article` for any KB subtype, `review-release-notes`, `review-ui-microcopy`, `review-api-docs`, or `review-gtm-brief`. For a file of type `general` or `post_mortem`, apply only the judgment rules of the guide.
 
 ## 5. Write the report
 

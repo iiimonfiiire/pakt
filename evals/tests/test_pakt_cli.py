@@ -33,7 +33,10 @@ def test_guide_reports_default_and_project_choice(tmp_path, capsys):
 def test_types_lists_requirements(capsys):
     assert cli.main(["types", "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
-    assert set(data) == {"kb_article", "release_note", "ui_microcopy", "api_doc", "general"}
+    assert {"kb_article", "kb_task", "kb_concept", "kb_troubleshooting", "walkthrough", "concept_guide", "tutorial",
+            "quickstart", "release_note", "ui_microcopy", "api_doc", "gtm_brief", "post_mortem", "general"} == set(data)
+    assert data["tutorial"]["parent"] == "kb_article" and "procedural" in data["tutorial"]["tags"]
+    assert data["post_mortem"]["requirements"] == []
 
 
 def test_lint_prints_line_numbers(tmp_path, capsys):
@@ -49,7 +52,7 @@ def test_review_detects_type_and_writes_json(tmp_path, capsys):
     (tmp_path / "kb" / "export.md").write_text(BAD_KB)
     code = cli.main(["review", "kb/export.md", "--json", "--out", "r.json"])
     data = json.loads((tmp_path / "r.json").read_text())
-    assert data["content_type"] == "kb_article" and data["verdict"] == "fail" and code == 1
+    assert data["content_type"] == "kb_task" and data["verdict"] == "fail" and code == 1
     rules = {f["rule"] for f in data["findings"]}
     assert {"heading_case", "contractions", "kb_numbered_steps"} <= rules
 
@@ -93,7 +96,7 @@ def test_audit_uses_project_type_map_and_fail_on(tmp_path, capsys):
     assert cli.main(["audit", "docs", "--json"]) == 0
     data = json.loads(capsys.readouterr().out)
     assert [f["path"] for f in data["files"]] == ["docs/one.md", "docs/two.md"]
-    assert data["files"][0]["content_type"] == "kb_article"
+    assert data["files"][0]["content_type"] == "kb_task"
     assert cli.main(["audit", "docs", "--fail-on", "fail"]) == 1
 
 
@@ -138,7 +141,7 @@ def test_release_notes_approve_blocks_error_findings(tmp_path, capsys):
 def test_init_and_new_guide(tmp_path, capsys):
     assert cli.main(["init", "--guide", "style/house", "--glossary", "glossary.toml"]) == 0
     text = (tmp_path / ".pakt.toml").read_text()
-    assert 'path = "style/house"' in text and 'path = "glossary.toml"' in text
+    assert 'source = "style/house"' in text and 'path = "glossary.toml"' in text
     assert cli.main(["init"]) == 1
     assert cli.main(["new-guide", "style/house", "--from", "plainspoken"]) == 0
     assert (tmp_path / "style" / "house" / "rules.toml").is_file()
@@ -148,9 +151,9 @@ def test_init_and_new_guide(tmp_path, capsys):
 
 
 def test_custom_guide_folder_with_its_own_threshold(tmp_path, capsys):
-    shutil.copytree(REPO_ROOT / "styleguides" / "signal", tmp_path / "house")
-    rules = (tmp_path / "house" / "rules.toml").read_text().replace("max_words = 22", "max_words = 5")
-    (tmp_path / "house" / "rules.toml").write_text(rules)
+    shutil.copytree(REPO_ROOT / "evals" / "tests" / "fixtures" / "signal", tmp_path / "house")
+    pack = tmp_path / "house" / "signal.rules.toml"
+    pack.write_text(pack.read_text().replace("params = { max_words = 20 }", "params = { max_words = 5 }"))
     (tmp_path / "page.md").write_text("This sentence has exactly seven words.\n")
     assert cli.main(["lint", "page.md"]) == 0
     assert cli.main(["lint", "page.md", "--guide", "house"]) == 1

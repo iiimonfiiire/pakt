@@ -8,9 +8,9 @@ from pathlib import Path
 from statistics import mean
 
 from pakt.rules import run_rules
-from pakt.styleguide import StyleGuide
+from pakt.styleguide import StyleGuide, default_guide
 
-from .runner import ItemResult, TestItem
+from .runner import ItemResult, TestItem, content_type_for
 
 
 def rule_names(results: list[ItemResult]) -> list[str]:
@@ -98,7 +98,8 @@ def baseline(items: list[TestItem], guide: StyleGuide | None = None) -> dict[str
     per_rule: dict[str, list[int]] = {}
     all_pass = 0
     for item in items:
-        results = [r for r in run_rules(item.source, (), guide) if r.rule != "key_terms"]
+        guide_ = guide or default_guide()
+        results = [r for r in run_rules(item.source, (), guide_, content_type_for(guide_, item.category)) if r.rule != "key_terms"]
         for r in results:
             per_rule.setdefault(r.rule, [0, 0])
             if r.applicable:

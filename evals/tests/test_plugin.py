@@ -15,7 +15,7 @@ from .conftest import REPO_ROOT
 
 SKILLS = sorted(p.parent.name for p in (REPO_ROOT / "skills").glob("*/SKILL.md"))
 EXPECTED = {
-    "review-kb-article", "review-release-notes", "review-ui-microcopy", "review-api-docs",
+    "review-kb-article", "review-release-notes", "review-ui-microcopy", "review-api-docs", "review-gtm-brief",
     "content-audit", "release-notes-drafter", "terminology-check", "docs-gap-finder",
     "pakt-setup", "signal-rewrite",
 }
@@ -53,8 +53,9 @@ def test_skill_references_exist(name):
 def test_skills_never_copy_guide_rules(name):
     """Skills read the active guide at run time. Copied rules would drift from the guide."""
     text = (REPO_ROOT / "skills" / name / "SKILL.md").read_text().lower()
-    for guide in ("signal", "plainspoken"):
-        rules = tomllib.loads((REPO_ROOT / "styleguides" / guide / "rules.toml").read_text())["rules"]
+    packs = [REPO_ROOT / "evals/tests/fixtures/signal/signal.rules.toml", REPO_ROOT / "styleguides/plainspoken/rules.toml"]
+    for pack in packs:
+        rules = tomllib.loads(pack.read_text())["rules"]
         for rule in rules:
             assert rule["summary"].lower().rstrip(".") not in text, rule["id"]
     assert not re.search(r"\b2[0-5] words\b", text)

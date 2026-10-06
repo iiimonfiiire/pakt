@@ -90,24 +90,34 @@ class Settings:
     review_prompt: Path = Path("prompts/review/v1.md")
 
 
-def resolve_guide(root: Path, start: Path | None = None, override: str | None = None) -> "StyleGuide":
-    """Pick the active guide: --guide, then .pakt.toml, then config.toml, then the bundled default."""
-    from .styleguide import DEFAULT_GUIDE, get_guide
+def guide_table(root: Path, start: Path | None = None, override: str | None = None) -> tuple[object, Path, str]:
+    """Pick the active guide source: --guide, then .pakt.toml, then config.toml, then Signal.
+
+    Returns (source string or [styleguide] table, folder that relative paths start from, origin).
+    """
+    from .styleguide import default_source
 
     if override:
-        return get_guide(override, root, Path.cwd(), origin=f"--guide {override}")
+        return override, Path.cwd(), f"--guide {override}"
     project = find_project_file(start)
     if project:
         table = read_toml(project).get("styleguide", {})
-        choice = table.get("path") or table.get("name")
-        if choice:
-            return get_guide(choice, root, project.parent, origin=f"{project}")
+        if table.get("source") or table.get("path") or table.get("name"):
+            return table, project.parent, str(project)
     cfg = root / "config.toml"
-    if cfg.is_file():
-        active = read_toml(cfg).get("styleguide", {}).get("active")
-        if active:
-            return get_guide(active, root, root, origin="config.toml")
-    return get_guide(DEFAULT_GUIDE, root, origin="default")
+    table = default_source(root)
+    origin = "config.toml" if cfg.is_file() and read_toml(cfg).get("styleguide") else "default"
+    return table, root, origin
+
+
+def resolve_guide(root: Path, start: Path | None = None, override: str | None = None, refresh: bool = False) -> "StyleGuide":
+    from .sources import parse_spec
+    from .styleguide import get_guide, resolve
+
+    value, base, origin = guide_table(root, start, override)
+    if refresh:
+        return resolve(parse_spec(value, base, root), origin, refresh=True)
+    return get_guide(value, root, base, origin=origin)
 
 
 def load_settings(start: Path | None = None, guide_override: str | None = None, root: Path | None = None) -> Settings:

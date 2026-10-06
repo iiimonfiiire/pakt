@@ -7,7 +7,7 @@ ITEMS = [
     # ---------------------------------------------------------------- KB articles
     dict(
         id="kb-01", category="kb_article",
-        failure_modes=["preamble", "sentence_length", "passive_voice", "contractions", "back_reference"],
+        failure_modes=["preamble", "sentence_length", "passive_voice", "contractions", "back_reference", "first_person"],
         must_keep=["Fernbook", "Settings", "Export", "30 days"],
         source=(
             "In this article, we'll go over how you can export your notes out of Fernbook. "
@@ -80,7 +80,7 @@ ITEMS = [
     ),
     dict(
         id="rn-03", category="release_note",
-        failure_modes=["ampersand", "contractions", "em_dash", "filler", "latin_abbrev"],
+        failure_modes=["ampersand", "contractions", "em_dash", "filler", "latin_abbrev", "sentence_length"],
         must_keep=["Quillstack", "Markdown", "tables", "2.14"],
         source=(
             "Quillstack 2.14 — Improvements & fixes\n"
@@ -112,7 +112,7 @@ ITEMS = [
     # --------------------------------------------------------------- UI microcopy
     dict(
         id="ui-01", category="ui_microcopy",
-        failure_modes=["contractions", "passive_voice", "filler"],
+        failure_modes=["passive_voice", "filler", "sentence_length"],
         must_keep=["Delete project", "cannot be undone"],
         source=(
             "Are you sure you'd like to go ahead and Delete project? Please note that this action cannot be undone "
@@ -121,7 +121,7 @@ ITEMS = [
     ),
     dict(
         id="ui-02", category="ui_microcopy",
-        failure_modes=["contractions", "em_dash", "ampersand"],
+        failure_modes=["em_dash", "ampersand"],
         must_keep=["8 characters", "number"],
         source="Hmm — that password doesn't look quite right. It's got to be at least 8 characters & include a number, ok?",
     ),
@@ -136,13 +136,13 @@ ITEMS = [
     ),
     dict(
         id="ui-04", category="ui_microcopy",
-        failure_modes=["contractions", "oxford_comma", "preamble"],
+        failure_modes=["oxford_comma", "preamble", "sentence_length"],
         must_keep=["Harborly", "contacts", "deals", "tasks"],
         source="Welcome aboard! Let's get you set up. You'll be able to manage contacts, deals and tasks from one place in Harborly.",
     ),
     dict(
         id="ui-05", category="ui_microcopy",
-        failure_modes=["passive_voice", "contractions", "back_reference", "em_dash"],
+        failure_modes=["passive_voice", "back_reference", "em_dash", "sentence_length"],
         must_keep=["Undo", "archived"],
         source="Your item was archived. If this wasn't intended, the button mentioned earlier can be used — just click Undo.",
     ),
@@ -200,7 +200,7 @@ ITEMS = [
     # -------------------------------------------------------------- error messages
     dict(
         id="err-01", category="error_message",
-        failure_modes=["passive_voice", "contractions", "hedging"],
+        failure_modes=["passive_voice", "hedging", "sentence_length"],
         must_keep=["ERR_SYNC_409", "conflicting"],
         source=(
             "Error ERR_SYNC_409: Unfortunately your changes couldn't be saved because a conflicting version of this file was "
@@ -218,7 +218,7 @@ ITEMS = [
     ),
     dict(
         id="err-03", category="error_message",
-        failure_modes=["contractions", "em_dash", "preamble"],
+        failure_modes=["em_dash", "preamble", "sentence_length"],
         must_keep=["2 GB", "storage"],
         source=(
             "Oops! Looks like you've run out of storage -- your plan includes 2 GB and you're using all of it. "
@@ -236,7 +236,7 @@ ITEMS = [
     ),
     dict(
         id="err-05", category="error_message",
-        failure_modes=["ampersand", "contractions", "latin_abbrev", "oxford_comma"],
+        failure_modes=["ampersand", "latin_abbrev", "oxford_comma", "sentence_length"],
         must_keep=["Tessellate", ".png", ".jpg", ".svg", "10 MB"],
         source=(
             "Tessellate can't open this image. Supported formats are .png, .jpg & .svg, and files must be under 10 MB e.g. "

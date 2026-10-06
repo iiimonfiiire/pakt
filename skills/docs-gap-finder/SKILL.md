@@ -25,7 +25,7 @@ pakt gaps --sources tickets.jsonl changelog.jsonl --docs <docs folder> --json
 
 Each candidate has one of three statuses:
 
-- **Missing** – No doc mentions the literal names in the item, such as a UI label, an error code, or an endpoint.
+- **Missing** – No doc mentions the literal names in the item, such as a UI label or an error code.
 - **Partial** – Some literal names appear in the docs, and some appear nowhere.
 - **Stale** – Every related doc was last updated before the change shipped. This status rests on dates, so it is always inferred.
 

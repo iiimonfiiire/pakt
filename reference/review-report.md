@@ -1,6 +1,6 @@
 # Review report format
 
-All four PAKT reviewer skills return the same report. The `pakt review` command writes the same shape, so a report from a skill and a report from the CLI compare directly.
+All four PAKT reviewer skills return the same report. The `pakt review` command writes the same shape. A report from a skill and a report from the CLI therefore compare directly.
 
 ## Scoring
 

@@ -10,6 +10,7 @@ from typing import Callable, Iterable
 
 from pakt.llm import LLMClient
 from pakt.rules import run_rules, sentence_stats
+from pakt.structure import ContentType, load_content_types
 from pakt.styleguide import StyleGuide
 
 from .config import Config
@@ -17,6 +18,14 @@ from .judge import Judgment, judge
 from .prompts import PromptFile, build_user_message, extract_rewrite
 
 CATEGORIES = {"kb_article", "release_note", "ui_microcopy", "api_doc", "error_message"}
+CATEGORY_TYPES = {"error_message": "ui_microcopy"}
+_TYPE_CACHE: dict[int, dict[str, ContentType]] = {}
+
+
+def content_type_for(guide: StyleGuide, category: str) -> ContentType | None:
+    """The content type whose rules apply to a test category. Error messages are UI microcopy."""
+    types = _TYPE_CACHE.setdefault(id(guide), load_content_types(guide))
+    return types.get(CATEGORY_TYPES.get(category, category))
 
 
 @dataclass(frozen=True)
@@ -95,7 +104,7 @@ class ItemResult:
 
 
 def score_text(text: str, item: TestItem, guide: StyleGuide) -> tuple[list[dict], dict]:
-    results = run_rules(text, item.must_keep, guide)
+    results = run_rules(text, item.must_keep, guide, content_type_for(guide, item.category))
     return [asdict(r) | {"violations": list(r.violations)} for r in results], sentence_stats(text)
 
 

@@ -27,14 +27,15 @@ Follow `reference/active-guide.md` at the PAKT root. The release-note sections c
 pakt release-notes draft --commits commits.txt --items prs.jsonl --product <name> --version <version> --out release-notes-<version>.md
 ```
 
-The skeleton groups the changes into sections and keeps a source comment on every line. Internal changes wait in a comment block. Every breaking change gets a `TODO` for its migration note.
+The skeleton uses the release-note headings of the active guide, in order, and keeps a source comment on every line. Internal changes wait in a comment block. Every breaking change or removal lands in a deprecation callout with a `TODO` for each required field.
 
 ## 4. Rewrite every line
 
 Rewrite each line for the reader, following the active guide:
 
 - **Facts only from the inputs** – Never invent a feature, a number, a limit, or a migration step. When a line needs a fact that no input states, keep the `TODO` and add a question for the person.
-- **Reader impact** – Say what changed for the reader, not what changed in the code.
+- **Capability first** – Name the new capability, not the work that the team did.
+- **Deprecations** – Fill each field of the deprecation callout from the inputs only.
 - **Sources stay** – Keep each `<!-- source: ... -->` comment on its line, so the person can trace every claim.
 - **Internal changes** – Check the internal block. Move a change into the notes only when its effect shows up for readers.
 

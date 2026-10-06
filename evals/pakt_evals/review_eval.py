@@ -28,7 +28,7 @@ class ReviewItem:
 
 def label_space(guide: StyleGuide, ctype: ContentType) -> dict[str, str]:
     """Every rule ID a reviewer can report for this content type, mapped to its kind."""
-    space = {r.id: r.kind for r in guide.rules}
+    space = {r.id: r.kind for r in guide.rules_for(ctype)}
     space.update({r.id: r.kind for r in ctype.requirements})
     return space
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -11,11 +12,12 @@ from pathlib import Path
 from . import audit as audit_mod
 from . import gaps as gaps_mod
 from . import release_notes as rn
-from .config import PROJECT_FILE, ConfigError, Settings, find_root, load_settings, require_api_key
+from .config import PROJECT_FILE, ConfigError, Settings, _load_dotenv, find_root, load_settings, require_api_key, resolve_guide
 from .document import load_document, parse_document
 from .review import load_template, review, verdict_for
-from .structure import detect_type, load_content_types
-from .styleguide import bundled_guides, get_guide
+from .structure import detect_type, load_content_types, refine_type
+from .sources import bundled_guides
+from .styleguide import get_guide
 from .terminology import check_terms, load_glossary, suggest_glossary
 
 
@@ -41,23 +43,44 @@ def _rel(path: Path, settings: Settings) -> str:
 
 
 def cmd_guide(args) -> int:
+    if args.action == "fetch":
+        root = find_root()
+        _load_dotenv(root)
+        g = resolve_guide(root, Path.cwd(), args.guide, refresh=True)
+        print(f"Fetched {g.label} from {g.source}")
+        if g.engine == "vale":
+            from . import vale
+
+            print(f"  synced Vale package into {vale.sync(g)}")
+        return 0
     s = _settings(args)
     g = s.guide
+    ctype = None
+    if args.type:
+        types = load_content_types(g, s.root)
+        if args.type not in types:
+            raise ConfigError(f"unknown content type {args.type!r}. Known: {', '.join(types)}")
+        ctype = types[args.type]
+    rules = [r for r in g.rules_for(ctype) if not args.kind or r.kind == args.kind]
     if args.json:
         payload = g.summary()
         if args.rules:
-            payload["rule_list"] = [r.to_dict() for r in g.rules if not args.kind or r.kind == args.kind]
+            payload["content_type"] = args.type or ""
+            payload["rule_list"] = [r.to_dict() for r in rules]
         print(json.dumps(payload, indent=2))
         return 0
     print(f"Active style guide: {g.label} ({g.id})")
     print(f"  selected by: {g.origin}")
-    print(f"  guide:       {g.document}")
-    print(f"  rules:       {g.directory / 'rules.toml'}")
+    print(f"  source:      {g.source} ({'pinned' if g.pinned else 'not pinned'})")
+    print(f"  engine:      {'Vale, for the deterministic layer' if g.engine == 'vale' else 'PAKT rules pack'}")
+    print(f"  prose:       {g.document if g.has_prose else 'none configured'}")
+    if g.rules_file:
+        print(f"  rules pack:  {g.rules_file}")
     print(f"  rule count:  {len(g.checkable)} deterministic, {len(g.judgment)} judgment")
     if args.rules:
-        for r in g.rules:
-            if args.kind and r.kind != args.kind:
-                continue
+        if args.type:
+            print(f"  effective rules for: {args.type}")
+        for r in rules:
             print(f"  - {r.id} [{r.kind}, {r.severity}] {r.summary}")
     print(f"Bundled guides: {', '.join(bundled_guides(s.root))}")
     return 0
@@ -68,12 +91,16 @@ def cmd_types(args) -> int:
     types = load_content_types(s.guide, s.root)
     if args.json:
         print(json.dumps({
-            t.id: {"name": t.name, "description": t.description, "requirements": [r.to_dict() for r in t.requirements]}
+            t.id: {
+                "name": t.name, "description": t.description, "parent": t.parent, "tags": list(t.tags),
+                "requirements": [r.to_dict() for r in t.requirements],
+            }
             for t in types.values()
         }, indent=2))
         return 0
     for t in types.values():
-        print(f"{t.id}: {t.name}")
+        parent = f" (subtype of {t.parent})" if t.parent else ""
+        print(f"{t.id}: {t.name}{parent}")
         for r in t.requirements:
             print(f"  - {r.id} [{r.kind}, {r.severity}] {r.summary}")
     return 0
@@ -81,12 +108,15 @@ def cmd_types(args) -> int:
 
 def cmd_lint(args) -> int:
     s = _settings(args)
-    general = load_content_types(s.guide, s.root)["general"]
+    types = load_content_types(s.guide, s.root)
+    if args.type and args.type not in types:
+        raise ConfigError(f"unknown content type {args.type!r}. Known: {', '.join(types)}")
     failures = 0
     rows = []
     for name in args.files:
         doc = load_document(Path(name))
-        report = review(doc, s.guide, general)
+        type_id = refine_type(doc, types, args.type) if args.type else "general"
+        report = review(doc, s.guide, types[type_id])
         for f in report.findings:
             failures += 1
             rows.append({"file": name, **f.to_dict()})
@@ -114,6 +144,7 @@ def cmd_review(args) -> int:
     type_id = args.type or detect_type(doc, types, _rel(path, s), s.type_map)
     if type_id not in types:
         raise ConfigError(f"unknown content type {type_id!r}. Known: {', '.join(types)}")
+    type_id = refine_type(doc, types, type_id)
     kwargs = {}
     if args.model:
         kwargs = dict(
@@ -228,9 +259,9 @@ def cmd_init(args) -> int:
     if target.exists() and not args.force:
         print(f"error: {PROJECT_FILE} already exists. Pass --force to overwrite.", file=sys.stderr)
         return 1
-    choice = args.guide or "signal"
-    key = "path" if ("/" in choice or Path(choice).is_dir()) else "name"
-    lines = ["[styleguide]", f'{key} = "{choice}"', ""]
+    lines = ["[styleguide]"]
+    lines += [f'source = "{args.guide}"'] if args.guide else ["# No source set: PAKT uses Signal, pinned in its config.toml.", '# source = "signal"']
+    lines.append("")
     if args.glossary:
         lines += ["[glossary]", f'path = "{args.glossary}"', ""]
     lines += [
@@ -245,15 +276,23 @@ def cmd_init(args) -> int:
 
 def cmd_new_guide(args) -> int:
     if args.source:
-        source = get_guide(args.source, find_root(), Path.cwd()).directory
+        g = get_guide(args.source, find_root(), Path.cwd())
     else:
-        source = _settings(args).guide.directory
+        g = _settings(args).guide
+    if g.rules_file is None:
+        print(f"error: {g.label} has no rules pack to copy. Write rules.toml by hand.", file=sys.stderr)
+        return 1
     dest = Path(args.dir)
     if dest.exists() and any(dest.iterdir()):
         print(f"error: {dest} is not empty", file=sys.stderr)
         return 1
-    shutil.copytree(source, dest, dirs_exist_ok=True)
-    print(f"Copied {source.name} to {dest}. Edit guide.md and rules.toml, then set [styleguide] path in {PROJECT_FILE}.")
+    dest.mkdir(parents=True, exist_ok=True)
+    text = g.rules_file.read_text(encoding="utf-8")
+    if g.has_prose:
+        shutil.copyfile(g.document, dest / "guide.md")
+        text = re.sub(r'(?m)^document = "[^"]*"', 'document = "guide.md"', text, count=1)
+    (dest / "rules.toml").write_text(text, encoding="utf-8")
+    print(f"Copied {g.label} to {dest}. Edit guide.md and rules.toml, then set [styleguide] source in {PROJECT_FILE}.")
     return 0
 
 
@@ -267,9 +306,12 @@ def build_parser() -> argparse.ArgumentParser:
         sp.set_defaults(fn=fn)
         return sp
 
-    g = add("guide", cmd_guide, "show the active style guide and where the choice came from")
+    g = add("guide", cmd_guide, "show the active style guide, or fetch it into the cache")
+    g.add_argument("action", nargs="?", choices=["show", "fetch"], default="show",
+                   help="show (default), or fetch: download the guide and refresh unpinned sources")
     g.add_argument("--rules", action="store_true", help="list the rules")
     g.add_argument("--kind", choices=["check", "judgment"])
+    g.add_argument("--type", help="show the effective rules for one content type")
     g.add_argument("--json", action="store_true")
 
     t = add("types", cmd_types, "list content types and their structural requirements")
@@ -277,11 +319,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     lint = add("lint", cmd_lint, "run the deterministic style checks on files")
     lint.add_argument("files", nargs="+")
+    lint.add_argument("--type", help="apply the rules and requirements of one content type (default: general)")
     lint.add_argument("--json", action="store_true")
 
     r = add("review", cmd_review, "score one file against the guide and its content type")
     r.add_argument("file")
-    r.add_argument("--type", help="kb_article, release_note, ui_microcopy, api_doc, or general (default: detect)")
+    r.add_argument("--type", help="a content type ID from `pakt types` (default: detect)")
     r.add_argument("--model", action="store_true", help="add model judgment (needs ANTHROPIC_API_KEY)")
     r.add_argument("--cache-only", action="store_true", help="with --model, use cached responses only")
     r.add_argument("--glossary", help="also check terminology against this glossary")

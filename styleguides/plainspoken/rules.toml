@@ -55,10 +55,11 @@ section = "Words"
 severity = "suggestion"
 summary = "Use numerals for every number."
 
-# A guide can replace a content type's structural requirements by ID.
+# The guide supplies the structural requirements for each content type.
 [[content_types.release_note.requirements]]
 id = "rn_sections"
+section = "Release notes"
 severity = "error"
 summary = "Group changes under Added, Changed, Fixed, and Removed."
 check = "allowed_headings"
-params = { allowed = ["Added", "Changed", "Fixed", "Removed"] }
+params = { allowed = ["Added", "Changed", "Fixed", "Removed"], ordered = true, slots = { new = "Added", improved = "Changed", fixed = "Fixed", deprecated = "Removed" } }

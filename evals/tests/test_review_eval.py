@@ -26,13 +26,17 @@ def setup(cfg):
 
 def test_reviewer_sets_are_balanced_and_valid(setup):
     _, _, items = setup
-    by_type = {}
+    cfg, types, _ = setup
+    by_family = {}
     for item in items:
-        by_type.setdefault(item.content_type, []).append(item)
-    assert set(by_type) == {"kb_article", "release_note", "ui_microcopy", "api_doc"}
-    for type_items in by_type.values():
-        assert len(type_items) >= 8
-        assert sum(1 for i in type_items if not i.violations) >= 2
+        family = types[item.content_type].parent or item.content_type
+        by_family.setdefault(family, []).append(item)
+    assert set(by_family) == {"kb_article", "release_note", "ui_microcopy", "api_doc", "gtm_brief"}
+    for family_items in by_family.values():
+        assert len(family_items) >= 6
+        assert sum(1 for i in family_items if not i.violations) >= 2
+    kb_types = {i.content_type for i in by_family["kb_article"]}
+    assert {"kb_task", "kb_concept", "kb_troubleshooting", "walkthrough", "concept_guide", "tutorial", "quickstart"} <= kb_types
 
 
 def test_sets_label_both_kinds_of_rule(setup):
@@ -53,7 +57,8 @@ def test_checks_find_exactly_the_labeled_check_rules(setup):
 @pytest.mark.parametrize("record, message", [
     ({"id": "a", "content_type": "kb_article"}, "missing 'text'"),
     ({"id": "a", "content_type": "poem", "text": "x"}, "unknown content type"),
-    ({"id": "a", "content_type": "kb_article", "text": "x", "violations": ["api_auth"]}, "not in the signal guide"),
+    ({"id": "a", "content_type": "kb_article", "text": "x", "violations": ["api_endpoint"]}, "not in the signal guide"),
+    ({"id": "a", "content_type": "ui_microcopy", "text": "x", "violations": ["contractions"]}, "not in the signal guide"),
 ])
 def test_set_validation(tmp_path, cfg, record, message):
     (tmp_path / "x.jsonl").write_text(json.dumps(record) + "\n")
@@ -66,7 +71,7 @@ def test_score_counts_pairs(cfg):
     items = [
         ReviewItem("a", "kb_article", "x", ("contractions", "numerals")),
         ReviewItem("b", "kb_article", "x", ()),
-        ReviewItem("c", "api_doc", "x", ("api_auth",)),
+        ReviewItem("c", "api_doc", "x", ("api_spec_alignment",)),
     ]
     preds = {"a": {"contractions", "hedging", "not_a_rule"}, "b": {"filler"}}
     m = score(items, preds, cfg.guide, types)

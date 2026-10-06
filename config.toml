@@ -1,8 +1,11 @@
 # PAKT configuration. Environment variables in .env override the models.
 # A project can pick its own style guide in a .pakt.toml file. See docs/style-guides.md.
 
+# The default style guide: Signal, fetched from its public repo and pinned to a release tag.
+# Keep DEFAULT_SOURCE in pakt/sources.py in step with this pin.
 [styleguide]
-active = "signal"
+source = "github:iiimonfiiire/signal-style-guide@v2026.10.06"
+rules = "signal.rules.toml"
 
 [review]
 model = "claude-sonnet-5-5"
