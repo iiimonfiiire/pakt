@@ -133,16 +133,28 @@ def test_parse_commits():
 def test_draft_groups_changes_and_keeps_sources():
     text = rn.draft(rn.parse_commits(COMMITS), "Fernbook", "2.5", TYPES["release_note"])
     assert "status: draft" in text and rn.DRAFT_BANNER in text
-    assert text.index("## New") < text.index("## Improved") < text.index("## Fixed") < text.index("## Breaking")
-    assert "<!-- source: d4e5f6a -->" in text and "TODO: Say what readers must change" in text
+    headings = [line[3:] for line in text.splitlines() if line.startswith("## ")]
+    assert headings == [
+        "New features", "Improvements", "Bug fixes", "Security updates", "API and developer changes",
+        "Deprecations and removals",
+    ]
+    assert "> **Warning:** Remove the /v1/notes endpoint. <!-- source: d4e5f6a -->" in text
+    assert all(f"> - **{field}** – TODO" in text for field in rn.DEPRECATION_FIELDS)
+    assert text.count(rn.NO_CHANGES) == 2
     assert "Left out as internal" in text and "bump runner image" in text
     assert "TODO: Move each of these changes" in text
 
 
 def test_draft_uses_the_guide_section_names():
     plain = load_content_types(get_guide("plainspoken", REPO_ROOT), REPO_ROOT)["release_note"]
-    text = rn.draft(rn.parse_commits("feat: add tags\nfix: stop crash\n"), "Fernbook", "2.5", plain)
-    assert "## Added" in text and "## Fixed" in text and "## New" not in text
+    text = rn.draft(rn.parse_commits("feat: add tags\nfix: stop crash\nfeat(security): rotate keys\n"), "Fernbook", "2.5", plain)
+    assert "## Added" in text and "## Fixed" in text and "## New" not in text and "## Changed" not in text
+    assert "TODO: Move each of these changes" in text and "Rotate keys." in text
+
+
+def test_changes_map_to_slots():
+    changes = rn.parse_commits("feat(api): add cursors\nfix(sdk): retry\nfeat(security): rotate keys\nperf: faster\n")
+    assert [c.slot for c in changes] == ["api", "api", "security", "improved"]
 
 
 def test_parse_items(tmp_path):
@@ -174,7 +186,10 @@ def test_approval_gate():
 
 def test_audit_ranks_worst_first_and_counts_rules(tmp_path):
     (tmp_path / "kb").mkdir()
-    (tmp_path / "kb" / "good.md").write_text("# Export notes\n\nExport your notes to share them.\n\n1. Open **Settings**.\n2. Click **Export**.\n")
+    (tmp_path / "kb" / "good.md").write_text(
+        "# Export notes\n\nExport your notes to share them.\n\n## Before you begin\n\nYou need the Editor role.\n\n"
+        "## Steps\n\n1. Open **Settings**.\n2. Click **Export**.\n\n## Verify the export\n\nThe file appears in your downloads.\n"
+    )
     (tmp_path / "kb" / "bad.md").write_text("# Export Your Notes Now\n\nIt's simple. You'll love it, and it's fast.\n\n- Open Settings.\n- Click Export.\n")
     (tmp_path / "node_modules").mkdir()
     (tmp_path / "node_modules" / "x.md").write_text("Don't scan me.\n")

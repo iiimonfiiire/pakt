@@ -64,13 +64,14 @@ def parse_document(text: str, path: Path | None = None) -> Document:
 # ------------------------------------------------------------- UI strings
 
 UI_KINDS = {
+    "nav": ("nav", "navigation", "menu", "sidebar"),
     "button": ("button", "btn", "cta", "action"),
     "error": ("error", "err", "failure", "invalid"),
     "tooltip": ("tooltip", "hint", "help"),
     "empty_state": ("empty", "empty_state", "emptystate", "zero"),
     "toast": ("toast", "snackbar", "notification", "success"),
     "placeholder": ("placeholder",),
-    "title": ("title", "heading", "header"),
+    "title": ("title", "heading", "header", "modal_title", "dialog_title"),
     "label": ("label", "field"),
     "body": ("body", "description", "message", "text"),
 }

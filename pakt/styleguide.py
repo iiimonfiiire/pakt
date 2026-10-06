@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from functools import lru_cache
 from pathlib import Path
 
@@ -22,15 +22,30 @@ class Rule:
     fix: str = ""
     check: str | None = None
     params: dict = field(default_factory=dict, hash=False, compare=False)
+    by_type: dict = field(default_factory=dict, hash=False, compare=False)
 
     @property
     def kind(self) -> str:
         return "check" if self.check else "judgment"
 
+    def for_type(self, keys: list[str]) -> "Rule | None":
+        """Apply the first matching by_type override. Returns None when the rule is off for the type."""
+        override = next((self.by_type[k] for k in keys if k in self.by_type), None)
+        if override is None:
+            return self
+        if override.get("enabled", True) is False:
+            return None
+        check = override["check"] if "check" in override else self.check
+        return replace(
+            self, severity=override.get("severity", self.severity), summary=override.get("summary", self.summary),
+            check=check or None, params={**self.params, **override.get("params", {})}, by_type={},
+        )
+
     def to_dict(self) -> dict:
         return {
             "id": self.id, "kind": self.kind, "severity": self.severity, "section": self.section,
             "summary": self.summary, "fix": self.fix, "check": self.check, "params": dict(self.params),
+            "by_type": dict(self.by_type),
         }
 
 
@@ -53,6 +68,19 @@ class StyleGuide:
     @property
     def judgment(self) -> list[Rule]:
         return [r for r in self.rules if not r.check]
+
+    def rules_for(self, ctype=None) -> list[Rule]:
+        """The effective rules for a content type: by_type matches the type ID, then its parent, then its tags."""
+        if ctype is None:
+            return list(self.rules)
+        keys = [ctype.id, *([ctype.parent] if ctype.parent else []), *ctype.tags]
+        return [r for rule in self.rules if (r := rule.for_type(keys)) is not None]
+
+    def checkable_for(self, ctype=None) -> list[Rule]:
+        return [r for r in self.rules_for(ctype) if r.check]
+
+    def judgment_for(self, ctype=None) -> list[Rule]:
+        return [r for r in self.rules_for(ctype) if not r.check]
 
     @property
     def label(self) -> str:
@@ -121,9 +149,15 @@ def _parse_rule(raw: dict, source: Path, registry: dict) -> Rule:
     check = raw.get("check")
     if check and check not in registry:
         raise ConfigError(f"{source}: rule {raw['id']!r} names unknown check {check!r}. Known: {', '.join(registry)}")
+    by_type = dict(raw.get("by_type", {}))
+    for key, override in by_type.items():
+        if override.get("severity", severity) not in SEVERITIES:
+            raise ConfigError(f"{source}: rule {raw['id']!r} has unknown severity for {key!r}")
+        if override.get("check") and override["check"] not in registry:
+            raise ConfigError(f"{source}: rule {raw['id']!r} names unknown check {override['check']!r} for {key!r}")
     return Rule(
         id=raw["id"], summary=raw["summary"], severity=severity, section=raw.get("section", ""),
-        fix=raw.get("fix", ""), check=check, params=dict(raw.get("params", {})),
+        fix=raw.get("fix", ""), check=check, params=dict(raw.get("params", {})), by_type=by_type,
     )
 
 

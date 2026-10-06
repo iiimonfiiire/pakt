@@ -148,15 +148,16 @@ def _findings_from(results, rules_by_id: dict[str, Rule], doc: Document, source:
 
 def deterministic_findings(doc: Document, guide: StyleGuide, ctype: ContentType) -> tuple[list[Finding], list]:
     """Run the guide's checks and the content type's structural checks. Returns (findings, structure results)."""
-    rules_by_id = {r.id: r for r in guide.checkable}
+    checkable = guide.checkable_for(ctype)
+    rules_by_id = {r.id: r for r in checkable}
     findings: list[Finding] = []
     if ctype.id == "ui_microcopy":
         doc.strings = doc.strings or parse_ui_strings(doc)
         for s in doc.strings:
-            results = [apply_rule(r, s.text) for r in guide.checkable]
+            results = [apply_rule(r, s.text, {"_kind": s.kind}) for r in checkable]
             findings += _findings_from(results, rules_by_id, doc, "check", line=s.line)
     else:
-        findings += _findings_from([apply_rule(r, doc.body) for r in guide.checkable], rules_by_id, doc, "check")
+        findings += _findings_from([apply_rule(r, doc.body) for r in checkable], rules_by_id, doc, "check")
     structure_results = [apply_requirement(r, doc) for r in ctype.checkable]
     req_by_id = {r.id: r for r in ctype.checkable}
     findings += _findings_from(structure_results, req_by_id, doc, "structure")
@@ -206,7 +207,7 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 # ------------------------------------------------------------ model layer
 
 def build_review_prompt(template: str, guide: StyleGuide, ctype: ContentType) -> str:
-    rules = "\n".join(f"- {r.id} ({r.severity}): {r.summary}" for r in guide.judgment)
+    rules = "\n".join(f"- {r.id} ({r.severity}): {r.summary}" for r in guide.judgment_for(ctype))
     reqs = "\n".join(f"- {r.id} ({r.severity}): {r.summary}" for r in ctype.requirements) or "- none"
     return (
         template.replace("{{guide_name}}", guide.label)
@@ -299,7 +300,7 @@ def review(
         )
     else:
         report.mode = "checks+model"
-        judgment = {r.id: r for r in [*guide.judgment, *ctype.judgment]}
+        judgment = {r.id: r for r in [*guide.judgment_for(ctype), *ctype.judgment]}
         completion = client.complete(
             model=model, system=build_review_prompt(template, guide, ctype),
             user=build_review_message(doc, ctype, findings), max_tokens=max_tokens, temperature=temperature,

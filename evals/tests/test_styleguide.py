@@ -24,7 +24,7 @@ def test_bundled_guides_load_and_validate():
 def test_signal_guide_shape():
     guide = get_guide("signal", REPO_ROOT)
     assert guide.id == "signal"
-    assert guide.rule("sentence_length").params == {"max_words": 22}
+    assert guide.rule("sentence_length").params == {"max_words": 20}
     assert guide.rule("one_term_per_concept").kind == "judgment"
     assert {r.severity for r in guide.rules} <= {"error", "warning", "suggestion"}
 
@@ -44,13 +44,17 @@ def test_threshold_comes_from_the_rules_file():
     assert "sentence_length" not in _failed(text, get_guide("plainspoken", REPO_ROOT))
 
 
-def test_guide_can_replace_content_type_requirements():
-    signal = load_content_types(get_guide("signal", REPO_ROOT), REPO_ROOT)["release_note"]
-    plain = load_content_types(get_guide("plainspoken", REPO_ROOT), REPO_ROOT)["release_note"]
+def test_each_guide_supplies_its_own_content_type_requirements():
+    signal = load_content_types(get_guide("signal", REPO_ROOT), REPO_ROOT)
+    plain = load_content_types(get_guide("plainspoken", REPO_ROOT), REPO_ROOT)
     allowed = lambda ct: next(r for r in ct.requirements if r.id == "rn_sections").params["allowed"]
-    assert allowed(signal) == ["New", "Improved", "Fixed", "Breaking"]
-    assert allowed(plain) == ["Added", "Changed", "Fixed", "Removed"]
-    assert len(plain.requirements) == len(signal.requirements)
+    assert allowed(signal["release_note"]) == [
+        "New features", "Improvements", "Bug fixes", "Security updates", "API and developer changes",
+        "Deprecations and removals",
+    ]
+    assert allowed(plain["release_note"]) == ["Added", "Changed", "Fixed", "Removed"]
+    assert [r.id for r in plain["release_note"].requirements] == ["rn_sections"]
+    assert not plain["api_doc"].requirements and signal["api_doc"].requirements
 
 
 def _write_guide(folder, rules):

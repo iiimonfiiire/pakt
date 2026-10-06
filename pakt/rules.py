@@ -184,6 +184,7 @@ _CLAUSE_OPENERS = {
 _TAIL_EXCLUDED = {
     "then", "so", "but", "which", "that", "who", "where", "when", "while", "because",
     "between", "both", "either", "neither", "whether", "if", "and", "or", "such",
+    "with", "without", "including", "from", "for", "into", "to", "in", "on", "at", "as", "via", "like", "than",
 }
 
 
@@ -277,7 +278,8 @@ def check_filler(text: str) -> RuleResult:
 _HEDGES = re.compile(
     r"\b(?:perhaps|maybe|probably|possibly|arguably|somewhat|ideally)\b"
     r"|\bit (?:could|can|might) be argued\b|\bit might be a good idea\b"
-    r"|\bgenerally considered\b|\byou (?:might|may) want to\b|\bsort of\b|\bkind of\b",
+    r"|\bgenerally considered\b|\byou (?:might|may) want to\b"
+    r"|\b(?:is|are|was|were|seems?|looks?|feels?|gets?|got)\s+(?:sort|kind)\s+of\b",
     re.I,
 )
 
@@ -403,28 +405,106 @@ _HEADING_LINE = re.compile(r"^\s*#{1,6}\s+(.+?)\s*#*\s*$")
 _MINOR_WORDS = {"a", "an", "and", "as", "at", "but", "by", "for", "in", "of", "on", "or", "the", "to", "with", "vs"}
 
 
+_MID_SENTENCE_CAPITAL = re.compile(r"(?<=[a-z0-9,;:)] )([A-Z][a-z][\w'’-]*)")
+
+
+def proper_nouns(text: str) -> set[str]:
+    """Words that the prose capitalizes mid-sentence, which marks them as names."""
+    names = set()
+    for line in mask_code(text).splitlines():
+        if not _HEADING_LINE.match(line):
+            names.update(_MID_SENTENCE_CAPITAL.findall(line))
+    return names
+
+
+def _title_case_words(phrase: str, names: set[str], min_len: int) -> list[str]:
+    words = re.findall(r"[A-Za-z][\w'’-]*", phrase)[1:]
+    return [
+        w for w in words
+        if len(w) >= min_len and w.lower() not in _MINOR_WORDS and not w.isupper()
+        and w not in ("CODE", "URL") and w not in names
+    ]
+
+
 def check_heading_case(text: str) -> RuleResult:
     """Flag Title Case headings. Sentence case capitalizes the first word and proper nouns only.
 
-    Heuristic: a heading fails when at least two words after the first are
-    four letters or longer and every one of them starts with a capital. A
-    heading full of proper nouns can still misfire.
+    Heuristic: a heading fails when at least two words after the first are four
+    letters or longer and every one starts with a capital. Words that the prose
+    capitalizes mid-sentence count as proper nouns and are skipped.
     """
     violations = []
     applicable = False
+    names = proper_nouns(text)
     for line in mask_code(text).splitlines():
         m = _HEADING_LINE.match(line)
         if not m:
             continue
         applicable = True
-        words = re.findall(r"[A-Za-z][\w'’-]*", m.group(1))[1:]
-        content = [
-            w for w in words
-            if len(w) >= 4 and w.lower() not in _MINOR_WORDS and not w.isupper() and w not in ("CODE", "URL")
-        ]
+        content = _title_case_words(m.group(1), names, 4)
         if len(content) >= 2 and all(w[0].isupper() for w in content):
             violations.append(f"title case heading: {_clip(m.group(1))}")
     return _result("heading_case", violations, applicable)
+
+
+def check_ui_case(text: str, kind: str | None, kinds: Iterable[str]) -> RuleResult:
+    """Flag a Title Case UI string of a kind that takes sentence case. Navigation items are exempt."""
+    if kind is None or kind not in set(kinds):
+        return _result("ui_case", [], applicable=False)
+    content = _title_case_words(mask_code(text), set(), 3)
+    bad = bool(content) and all(w[0].isupper() for w in content)
+    return _result("ui_case", [f"title case {kind}: {_clip(text)}"] if bad else [])
+
+
+_WE = re.compile(r"\b(?:we|our|ours|ourselves)\b", re.I)
+_I = re.compile(r"(?<![\w/’'-])I(?![\w/.-])")
+
+
+def check_first_person(text: str) -> RuleResult:
+    masked = mask_code(text)
+    found = [m.group(0) for m in _WE.finditer(masked)] + [m.group(0) for m in _I.finditer(masked)]
+    return _result("first_person", [f"first person: {w}" for w in found])
+
+
+_NUMBERED_ITEM = re.compile(r"^\s*\d+[.)]\s+(.*)$")
+
+
+def check_semicolons(text: str, scope: str = "all") -> RuleResult:
+    """Flag semicolons in prose. With scope 'steps', only numbered procedure steps count."""
+    masked = re.sub(r"&[a-z]+;|&#\d+;", "", mask_code(text))
+    if scope == "steps":
+        units = [m.group(1) for line in masked.splitlines() if (m := _NUMBERED_ITEM.match(line))]
+        applicable = bool(units)
+    else:
+        units, applicable = text_units(masked), True
+    violations = []
+    for unit in units:
+        for m in re.finditer(";", unit):
+            violations.append(f"semicolon: {_clip(unit[max(0, m.start() - 30): m.end() + 30])}")
+    return _result("semicolons", violations, applicable)
+
+
+_FOOTNOTE = re.compile(r"\[\^[^\]\s]+\]")
+_PAREN_CITATION = re.compile(r"\((?:[A-Z][A-Za-z'’-]+(?: et al\.)?(?: (?:and|&) [A-Z][A-Za-z'’-]+)?),? (?:1[89]|20)\d{2}[a-z]?\)")
+
+
+def check_citations(text: str, footnotes: str = "deprecated") -> RuleResult:
+    """Web docs cite with descriptive links: flag footnote markers and inline parenthetical citations."""
+    without_code = _INLINE_CODE.sub("CODE", _FENCE.sub("\n", text))
+    violations = [f"inline parenthetical citation: {m.group(0)}" for m in _PAREN_CITATION.finditer(without_code)]
+    if footnotes == "deprecated":
+        violations += [f"footnote marker deprecated for web docs: {m.group(0)}" for m in _FOOTNOTE.finditer(without_code)]
+    return _result("citations", violations)
+
+
+_EMPHASIS_CAPS = ("IMPORTANT", "NOTE", "WARNING", "CAUTION", "ERROR", "ATTENTION", "NEVER", "ALWAYS", "MUST", "NOT", "DO", "ONLY")
+
+
+def check_all_caps(text: str, words: Iterable[str] = _EMPHASIS_CAPS) -> RuleResult:
+    """Flag all-caps emphasis words. Acronyms and HTTP methods never appear in the list, so they pass."""
+    pattern = re.compile(rf"\b(?:{'|'.join(re.escape(w) for w in words)})\b")
+    found = [m.group(0) for m in pattern.finditer(mask_code(text))]
+    return _result("all_caps", [f"all-caps emphasis: {w}" for w in found])
 
 
 def check_banned_terms(text: str, terms: dict[str, str] | Iterable[str]) -> RuleResult:
@@ -444,7 +524,7 @@ def check_banned_terms(text: str, terms: dict[str, str] | Iterable[str]) -> Rule
 CheckFn = Callable[[str, dict], RuleResult]
 
 CHECKS: dict[str, CheckFn] = {
-    "sentence_length": lambda t, p: check_sentence_length(t, int(p.get("max_words", 22))),
+    "sentence_length": lambda t, p: check_sentence_length(t, int(p.get("max_words", 20))),
     "em_dash": lambda t, p: check_em_dash(t),
     "contractions": lambda t, p: check_contractions(t),
     "oxford_comma": lambda t, p: check_oxford_comma(t),
@@ -460,24 +540,33 @@ CHECKS: dict[str, CheckFn] = {
     "link_text": lambda t, p: check_link_text(t),
     "heading_case": lambda t, p: check_heading_case(t),
     "banned_terms": lambda t, p: check_banned_terms(t, p.get("terms", {})),
+    "first_person": lambda t, p: check_first_person(t),
+    "semicolons": lambda t, p: check_semicolons(t, p.get("scope", "all")),
+    "citations": lambda t, p: check_citations(t, p.get("footnotes", "deprecated")),
+    "all_caps": lambda t, p: check_all_caps(t, p.get("words", _EMPHASIS_CAPS)),
+    "ui_case": lambda t, p: check_ui_case(t, p.get("_kind"), p.get("kinds", ())),
 }
 
 
-def apply_rule(rule: "Rule", text: str) -> RuleResult:
-    """Run one guide rule's deterministic check and label the result with the rule ID."""
-    return replace(CHECKS[rule.check](text, dict(rule.params)), rule=rule.id)
+def apply_rule(rule: "Rule", text: str, extra: dict | None = None) -> RuleResult:
+    """Run one guide rule's deterministic check and label the result with the rule ID.
+
+    `extra` passes context that is not part of the rule, such as the kind of a UI string.
+    """
+    return replace(CHECKS[rule.check](text, {**rule.params, **(extra or {})}), rule=rule.id)
 
 
 def run_rules(
     text: str,
     must_keep: Iterable[str] = (),
     guide: "StyleGuide | None" = None,
+    ctype=None,
 ) -> list[RuleResult]:
-    """Run every deterministic rule of a guide (default: the bundled Signal guide), then key_terms."""
+    """Run every deterministic rule of a guide (default: Signal) for a content type, then key_terms."""
     from .styleguide import default_guide
 
     guide = guide or default_guide()
-    results = [apply_rule(rule, text) for rule in guide.checkable]
+    results = [apply_rule(rule, text) for rule in guide.checkable_for(ctype)]
     results.append(check_key_terms(text, must_keep))
     return results
 
@@ -499,5 +588,6 @@ __all__ = [
     "check_sentence_length", "check_em_dash", "check_contractions", "check_oxford_comma",
     "check_back_references", "check_preamble", "check_filler", "check_passive_voice",
     "check_hedging", "check_second_person", "check_ampersand", "check_bold_leadin", "check_latin_abbreviations",
-    "check_link_text", "check_key_terms", "check_heading_case", "check_banned_terms",
+    "check_link_text", "check_key_terms", "check_heading_case", "check_banned_terms", "check_first_person",
+    "check_semicolons", "check_citations", "check_all_caps", "check_ui_case", "proper_nouns",
 ]

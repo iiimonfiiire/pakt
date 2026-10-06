@@ -2,7 +2,7 @@
 
 *For clear, concise, and easy-to-scan writing.*
 
-- **Last revision** – 23 Sep 2026
+- **Last revision** – 6 Oct 2026
 
 ---
 
@@ -10,15 +10,20 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 
 ## 1. Core identity and register
 
-- **Baseline** – Follow the Chicago Manual of Style's Notes-Bibliography system, updated with modern technical layout sensibilities.
-- **Formality** – Keep writing professional-polished: formal but human, in first-person voice, without slang or colloquialisms.
+- **Baseline** – Follow the Chicago Manual of Style's Notes-Bibliography system, updated with modern technical layout sensibilities. Citations are adapted for the web (see [Attribution and citations](#3-attribution-and-citations)).
+- **Formality** – Keep writing professional-polished: formal but human, without slang or colloquialisms.
+- **Voice boundaries** – Choose the voice by document type.
+  - **First person** ("we," "our") – Reserved for corporate-voice and organizational documents only: release notes, incident post-mortems, and GTM enablement briefs.
+  - **Second person** ("you") – Required, with imperative verbs, in all instructional, procedural, technical, and knowledge management documents. This covers KB guides, API docs, conceptual articles, and UI copy. First-person pronouns ("we," "our," "I") are forbidden in these documents.
 - **Humor** – Leave it out. Writing stays strictly substantive, with no jokes, asides, or rhetorical flourishes.
 - **Directness** – Be blunt. State the conclusion first, name problems plainly, and minimize hedging language like "it could be argued" or "perhaps."
 
 ## 2. Punctuation and syntax
 
 - **Oxford comma** – Use it every time; it is a must, with no exceptions, because ambiguity must be eliminated.
-- **Semicolons** – Use them for genuine syntactic need, such as joining two independent clauses, never as decoration or a substitute for a period.
+- **Semicolons** – Use them only to join two closely related independent clauses, never as decoration or a substitute for a period. Where they may appear depends on the surface.
+  - **Prohibited** – UX copy, UI error messages, and step-by-step procedural instructions.
+  - **Permitted** – Formal conceptual overviews, architecture guides, and GTM enablement briefs, provided the sentence stays within its length cap.
 - **Em dash** – Reserve it for a mid-sentence tone shift only, and never add spaces around it. Correct: "the fix worked—barely." Incorrect: "the fix worked — barely."
 - **En dash** – Use it after every bolded lead-in term that opens a bullet. A fragment or a full sentence may follow (see [Formatting and visual hierarchy](#9-formatting-and-visual-hierarchy)).
 - **Ampersands** – Never use an ampersand in technical writing, not even in a title or heading, and spell out "and" instead. UX writing allows one narrow exception. An ampersand may appear in a title only as a deliberate branding choice, never as a default shorthand for "and."
@@ -26,7 +31,8 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 
 ## 3. Attribution and citations
 
-- **Footnotes** – Use numerical footnotes or endnotes for every sourced claim.
+- **Web and Markdown documents** – Cite sources with descriptive hyperlinked anchor text embedded directly in the prose. Numerical footnotes (`[^1]`) are deprecated for web documentation.
+- **PDF and print outputs** – Use numerical footnotes or endnotes for every sourced claim. Reserve them strictly for formal offline or print documents.
 - **Inline citations** – Never use an intrusive inline parenthetical citation, such as `(Author, Year)`. Keep the main prose uninterrupted.
 
 ## 4. Numerals
@@ -47,10 +53,16 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 ## 6. Voice and grammar
 
 - **Voice** – Use active voice almost always. Switch to passive voice only when the actor is genuinely unknown or irrelevant to the point being made.
-- **Second person** – Address the reader directly as "you" in any instructional sentence, not only numbered procedures. Pair it with an imperative verb: "Click Save," not "The user clicks Save."
+- **Second person** – Address the reader directly as "you" in any instructional sentence, not only numbered procedures. Pair it with an imperative verb: "Click Save," not "The user clicks Save." See [Core identity and register](#1-core-identity-and-register) for where first person is allowed instead.
 - **Contractions** – Avoid them; always expand instead. Write "do not," not "don't," and "it is," not "it's."
+  - **Long-form prose** – The ban applies fully to long-form documentation, KB articles, API specs, and release notes.
+  - **UX microcopy exception** – Contractions are allowed in UI microcopy only: buttons, tooltips, toast notifications, error messages, modals, and empty states. They keep the interface natural and low-friction.
 - **Forbidden words** – Keep no fixed ban list. Default to plain, precise language over jargon or filler, and use a simpler word whenever it says the same thing.
-- **Sentence length** – Cap every sentence at 20 to 22 words, and split anything longer.
+- **Sentence length** – Cap sentence length by content type, and split anything longer. Convert complex logical dependencies that exceed a cap into a bulleted list or a table.
+  - **UX microcopy** – 12 words maximum per string or sentence.
+  - **Instructional steps and procedures** – 20 words maximum.
+  - **Conceptual and architectural overviews** – 28 words maximum.
+  - **Everything else** – Default to the 20-word instructional cap.
 - **Flow** – State things in the order the reader needs them, and never use a back-reference like "as mentioned above" or "the second option."
 - **Sentence structure** – Default to full sentences in prose, paragraphs, user stories, and instructions. The one flexible case is a definition-style bullet, which pairs a bolded term with an en dash. What follows may be a fragment or a full sentence (see [Formatting and visual hierarchy](#9-formatting-and-visual-hierarchy)).
 
@@ -67,8 +79,9 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 ## 8. Capitalization
 
 - **Titles and headings** – Always use sentence case: capitalize only the first word and any proper nouns, never Title Case.
+- **UI text** – Use sentence case for inline UI elements (labels, tooltips, buttons) and modal dialog titles. Title Case is reserved strictly for top-level navigation.
 - **Code-style casing** – Reserve `camelCase`, `PascalCase`, and `snake_case` for code identifiers only, such as variables, functions, and filenames. Never use them for prose headings or titles.
-- **All caps** – Avoid it for emphasis. Use bold instead (see [Technical conventions](#7-technical-conventions)).
+- **All caps** – Avoid it for emphasis. Use bold instead (see [Technical conventions](#7-technical-conventions)). HTTP methods are the exception (see [API documentation](#api-documentation)).
 
 ## 9. Formatting and visual hierarchy
 
@@ -83,21 +96,96 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 - **Tables** – Use them only for genuinely tabular or numeric data, such as specs, datasets, or structured comparisons of hard values. Qualitative comparisons stay in prose or in bullets.
 - **Hyperlinks** – Write descriptive link text that names the destination, and paraphrase freely to fit the sentence. Never use generic text like "click here."
 
-## 10. Quick-reference checklist
+## 10. Document types
+
+Each document type below adds structure on top of the general rules. Where a rule here is stricter, it wins.
+
+### Knowledge base articles
+
+- **Task-based guides** – Goal or summary, prerequisites, procedure, and verification, in that order.
+- **Conceptual articles** – Summary, core concepts, architecture or diagram, and related tasks, in that order.
+
+### Troubleshooting guides
+
+- **Baseline layout** – Symptom, cause, and resolution, in that order.
+- **Environment or scope** – Add an explicit environment or scope section whenever the issue or resolution depends on specific software versions, operating systems, hardware, or configuration.
+
+### Release notes
+
+- **Mandatory headings** – Group every update under these six headings, in this order.
+  1. New features
+  2. Improvements
+  3. Bug fixes
+  4. Security updates
+  5. API and developer changes
+  6. Deprecations and removals
+- **Capability-first framing** – Describe what the reader can now do, not what engineering built. Write "You can now export..." or "The API now supports...," not "We added an API..."
+- **Deprecation callouts** – Announce every deprecation in a `> **Warning:**` callout that states four items.
+  - **Feature name** – The exact name of the deprecated feature.
+  - **End-of-life date** – The date the feature stops working.
+  - **Impact or reason** – What changes for the reader, and why.
+  - **Migration path** – The replacement, or a link to a migration guide.
+
+### UX copy
+
+- **Casing** – Follow the UI text rule (see [Capitalization](#8-capitalization)).
+- **Error messages** – Use a compact two-part structure: what happened, then an actionable next step. Leave out the "why" to keep notifications short. Example: "Couldn't save your file. Check your connection and try again."
+
+### API documentation
+
+- **Endpoints** – Write HTTP methods in uppercase (`GET`, `POST`, `PUT`, `DELETE`) with the full path syntax (`/v1/resource/{id}`).
+- **Parameter tables** – Use a four-column table: **Parameter**, **Type**, **Required or optional**, and **Description**. Mark required fields with an explicit badge or an asterisk.
+- **Code samples** – Provide tabbed code snippets for cURL and the primary languages. Mask auth tokens (`Bearer <TOKEN>`), and include standard JSON success and error response schemas.
+- **Spec alignment** – Structure every reference page so it maps directly to the OpenAPI or Swagger spec.
+
+### Product walkthroughs
+
+- **UI verbs** – Use one verb per interaction type.
+  - **Click or tap** – Buttons, links, icons, and menus. Use "click" for desktop and "tap" for mobile.
+  - **Select** – Picking specific elements from a visible set, such as checkboxes, radio options, table rows, or tabs.
+  - **Choose** – Decision-based choices, such as file pickers, pricing tiers, or an option in a dropdown flow.
+  - **Enter** – Keying text or code into an input field: "Enter `admin` in the **Username** field."
+  - **Toggle** – Changing a state-based control, such as a switch or a toggle button.
+  - **Drag and drop, or hover** – Interactive behaviors, such as reordering, uploading, or revealing a tooltip.
+- **Step density** – Build each numbered step around a major UI state change, a form completion, or a page transition. Never give every click its own number.
+- **Inline actions** – Combine closely coupled, low-friction actions in one step: "Enter your API key and click **Verify** to activate the endpoint."
+
+### Learning and development content
+
+- **Concept guides** – Pure theory and mental models, with no procedures.
+- **Tutorials** – End-to-end, outcome-focused paths, structured in three parts.
+  1. Open with measurable learning objectives: "By the end of this tutorial, you will be able to..."
+  2. Cover the concepts before the procedures.
+  3. Close with verification steps.
+- **Quickstarts** – Streamlined procedural execution with zero conceptual overhead.
+
+### GTM and product handoff briefs
+
+- **Mandatory sections** – Use these five sections, in this order.
+  1. Target persona and pain point
+  2. Value proposition
+  3. Technical capabilities and scope
+  4. Known limitations and edge cases
+  5. Competitive differentiators
+- **Codenames** – Allow an internal codename only in a single metadata line at the top of the brief: "Internal codename: Project Titan." Body copy, headers, and external materials use official product and feature branding only.
+
+## 11. Quick-reference checklist
 
 - [ ] Oxford comma used throughout, with no exceptions
-- [ ] Citations are numerical footnotes, not inline parentheticals
+- [ ] Web citations are descriptive hyperlinks; numerical footnotes for print or PDF only; no inline parentheticals
 - [ ] Numbers zero through nine spelled out; 10 and above as numerals
 - [ ] Technical or measured values (identifiers, severity, steps, units) stay numerals even under 10
 - [ ] No ampersands in technical writing; UX titles get a branding exception only
 - [ ] "e.g." and "i.e." used correctly, never interchangeably, each followed by a comma
+- [ ] Semicolons kept out of UX copy, error messages, and procedures
 - [ ] One preferred term per concept, held consistently within a document
-- [ ] Titles and headings in sentence case, never Title Case or ALL CAPS
+- [ ] Titles and headings in sentence case, never Title Case or ALL CAPS; Title Case only in top-level navigation
 - [ ] `camelCase`, `PascalCase`, and `snake_case` reserved for code identifiers only
 - [ ] Active voice, except where the actor is genuinely unknown
-- [ ] Second-person imperative for any instructional sentence
-- [ ] No contractions
-- [ ] Sentences at 20 to 22 words or fewer; forward-flowing, with no back-references
+- [ ] "We" only in release notes, post-mortems, and GTM briefs; "you" plus imperative everywhere else
+- [ ] No contractions, except in UI microcopy
+- [ ] Sentence caps met: 12 words for microcopy, 20 for procedures, 28 for conceptual overviews
+- [ ] Forward-flowing, with no back-references
 - [ ] Full sentences by default; fragments only in definition-style bullets
 - [ ] Bold lead-in bullets use an en dash, never a period, before the content
 - [ ] Acronyms spelled out on first use for non-expert audiences
@@ -109,4 +197,5 @@ Signal is a style guide for UX writing, technical writing, and knowledge managem
 - [ ] Blockquotes for quotes; callouts for asides and warnings
 - [ ] Tables only for genuinely tabular or numeric data
 - [ ] Hyperlink text is descriptive, never "click here"
+- [ ] Document type structure followed (see [Document types](#10-document-types))
 - [ ] No humor; conclusion-first, blunt directness

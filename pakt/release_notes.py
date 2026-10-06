@@ -17,8 +17,18 @@ DRAFT_BANNER = (
 )
 TODO = "TODO"
 INTERNAL_TYPES = {"chore", "test", "tests", "ci", "build", "docs", "style", "refactor", "revert"}
-GROUP_INDEX = {"feat": 0, "feature": 0, "perf": 1, "improvement": 1, "enhancement": 1, "fix": 2, "bug": 2, "breaking": 3}
-DEFAULT_GROUPS = ["New", "Improved", "Fixed", "Breaking"]
+SLOT_BY_TYPE = {
+    "feat": "new", "feature": "new", "perf": "improved", "improvement": "improved", "enhancement": "improved",
+    "fix": "fixed", "bug": "fixed", "security": "security", "sec": "security", "deprecate": "deprecated",
+    "deprecation": "deprecated", "remove": "deprecated", "removal": "deprecated", "breaking": "deprecated",
+}
+API_SCOPES = {"api", "sdk", "cli", "webhook", "webhooks", "graphql", "rest"}
+DEFAULT_SLOTS = {
+    "new": "New features", "improved": "Improvements", "fixed": "Bug fixes", "security": "Security updates",
+    "api": "API and developer changes", "deprecated": "Deprecations and removals",
+}
+NO_CHANGES = "No changes in this release."
+DEPRECATION_FIELDS = ("Feature name", "End-of-life date", "Impact or reason", "Migration path")
 
 _HASH = re.compile(r"^([0-9a-f]{7,40})\s+(.*)$")
 _CONVENTIONAL = re.compile(r"^(?P<type>\w+)(?:\((?P<scope>[^)]*)\))?(?P<bang>!)?:\s*(?P<summary>.+)$")
@@ -35,6 +45,16 @@ class Change:
     @property
     def internal(self) -> bool:
         return self.type in INTERNAL_TYPES and not self.breaking
+
+    @property
+    def slot(self) -> str | None:
+        if self.breaking:
+            return "deprecated"
+        if self.type in ("feat", "feature", "perf", "fix") and self.scope.lower() in API_SCOPES:
+            return "api"
+        if self.scope.lower() == "security":
+            return "security"
+        return SLOT_BY_TYPE.get(self.type)
 
 
 def parse_commits(text: str) -> list[Change]:
@@ -73,20 +93,22 @@ def parse_items(path: Path) -> list[Change]:
         labels = {str(label).lower() for label in row.get("labels", [])}
         kind = str(row.get("type") or "").lower()
         if not kind:
-            kind = next((k for k in ("breaking", "bug", "feature", "enhancement", "chore") if k in labels), "other")
+            order = ("breaking", "deprecation", "security", "bug", "feature", "enhancement", "chore")
+            kind = next((k for k in order if k in labels), "other")
+        scope = "api" if labels & API_SCOPES else ""
         changes.append(Change(
-            source=str(row["id"]), type=kind, summary=str(row["title"]).strip(),
+            source=str(row["id"]), type=kind, summary=str(row["title"]).strip(), scope=scope,
             breaking=bool(row.get("breaking")) or "breaking" in labels or kind == "breaking",
         ))
     return changes
 
 
-def group_names(ctype: ContentType | None) -> list[str]:
-    if ctype is not None:
-        req = next((r for r in ctype.requirements if r.check == "allowed_headings"), None)
-        if req and req.params.get("allowed"):
-            return list(req.params["allowed"])
-    return list(DEFAULT_GROUPS)
+def sections(ctype: ContentType | None) -> tuple[list[str], dict[str, str], bool]:
+    """The guide's release-note headings, the slot each change kind maps to, and whether every heading is required."""
+    req = None if ctype is None else next((r for r in ctype.requirements if r.check == "allowed_headings"), None)
+    if req is None or not req.params.get("allowed"):
+        return list(DEFAULT_SLOTS.values()), dict(DEFAULT_SLOTS), True
+    return list(req.params["allowed"]), dict(req.params.get("slots", {})), bool(req.params.get("required"))
 
 
 def _sentence(text: str) -> str:
@@ -96,29 +118,35 @@ def _sentence(text: str) -> str:
 
 
 def draft(changes: list[Change], product: str, version: str, ctype: ContentType | None = None) -> str:
-    groups = group_names(ctype)
+    groups, slots, required = sections(ctype)
     buckets: dict[str, list[Change]] = {g: [] for g in groups}
     unsorted: list[Change] = []
     for change in changes:
         if change.internal:
             continue
-        index = 3 if change.breaking else GROUP_INDEX.get(change.type)
-        if index is None or index >= len(groups):
-            unsorted.append(change)
+        heading = slots.get(change.slot or "")
+        if heading in buckets:
+            buckets[heading].append(change)
         else:
-            buckets[groups[index]].append(change)
+            unsorted.append(change)
+    deprecated_heading = slots.get("deprecated")
     lines = [
         "---", "status: draft", "pakt_type: release_note", "generated_by: pakt release-notes", "---",
         f"# {product} {version} release notes", "", DRAFT_BANNER, "",
     ]
     for name in groups:
-        if not buckets[name]:
+        if not buckets[name] and not required:
             continue
         lines += [f"## {name}", ""]
+        if not buckets[name]:
+            lines.append(NO_CHANGES)
         for c in buckets[name]:
-            lines.append(f"- {_sentence(c.summary)} <!-- source: {c.source} -->")
-            if c.breaking:
-                lines.append(f"  {TODO}: Say what readers must change to keep working.")
+            if name == deprecated_heading:
+                lines.append(f"> **Warning:** {_sentence(c.summary)} <!-- source: {c.source} -->")
+                lines += [f"> - **{field}** – {TODO}" for field in DEPRECATION_FIELDS]
+                lines.append("")
+            else:
+                lines.append(f"- {_sentence(c.summary)} <!-- source: {c.source} -->")
         lines.append("")
     if unsorted:
         lines += [f"{TODO}: Move each of these changes under a heading, or delete it.", ""]

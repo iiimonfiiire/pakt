@@ -2,7 +2,7 @@ import pytest
 
 from pakt.styleguide import default_guide
 from pakt_evals import rules as r
-from pakt_evals.runner import load_testset
+from pakt_evals.runner import content_type_for, load_testset
 
 
 # ------------------------------------------------------------ sentence split
@@ -239,5 +239,6 @@ def test_sentence_stats():
 def test_planted_failure_modes_are_detected_on_sources(cfg):
     """Every failure mode labeled on a test item must trip the matching rule on its source."""
     for item in load_testset(cfg.testset):
-        failed = {res.rule for res in r.run_rules(item.source, item.must_keep, cfg.guide) if not res.passed}
+        ctype = content_type_for(cfg.guide, item.category)
+        failed = {res.rule for res in r.run_rules(item.source, item.must_keep, cfg.guide, ctype) if not res.passed}
         assert set(item.failure_modes) == failed, item.id

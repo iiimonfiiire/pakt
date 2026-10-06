@@ -93,7 +93,7 @@ def test_score_canned_outputs(cfg, tmp_path):
     p.write_text(json.dumps({"item_id": "err-01", "variant": "x", "output": "Oops, it didn't save."}) + "\n")
     [r] = score_canned_outputs(cfg, p, load_testset(cfg.testset))
     assert not r.format_ok
-    assert {"contractions", "preamble"} <= set(r.failed_style_rules)
+    assert "preamble" in r.failed_style_rules and "contractions" not in r.failed_style_rules
     assert not r.key_terms_ok
 
 
