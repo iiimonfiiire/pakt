@@ -33,7 +33,7 @@ Point `.pakt.toml` at the file with `[glossary] path = "glossary.toml"`.
 ## Build a glossary
 
 1. Run `pakt terms --suggest <docs folder> --out glossary.toml`. The draft lists common variant families that the docs use, with counts, and every acronym with its count.
-2. Ask the person to pick the preferred term for each family. Offer the choices as multiple choice, and show the counts, because the most common term is not always the right one.
+2. Ask the person to pick the preferred term for each family. Offer the choices as multiple choice, and show the counts. The most common term is not always the right one.
 3. Ask for a one-line definition of each product-specific term. Leave a definition empty rather than guess it.
 4. Ask which acronyms the audience knows. Put those in `jargon.allow`.
 5. Save the file, and add the glossary path to `.pakt.toml`.

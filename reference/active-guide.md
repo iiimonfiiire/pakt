@@ -1,6 +1,6 @@
 # Load the active style guide
 
-Every PAKT skill works against one style guide: the active guide. Signal is the default, and a team can swap in its own. A skill reads the guide at run time and never copies its rules, so a skill cannot drift from the guide.
+Every PAKT skill works against one style guide: the active guide. Signal is the default, and a team can swap in its own. A skill reads the guide at run time and never copies its rules. A skill therefore cannot drift from the guide.
 
 ## Find the PAKT root
 
@@ -14,7 +14,7 @@ Run this command from the folder that holds the docs:
 pakt guide --json
 ```
 
-The output names the guide, the guide document, the rules file, and the setting that chose them. To list only the rules that need judgment, run `pakt guide --rules --kind judgment --json`.
+The output names the guide, the guide document, the rules file, and the setting that chose them. Rules change by content type, so add `--type <type>` to list the effective rules for one type. Add `--kind judgment` to list only the rules that need judgment.
 
 If the shell reports that `pakt` is missing, install it once:
 

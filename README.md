@@ -1,8 +1,8 @@
 # PAKT
 
-**Portable Agentic Knowledge Toolkit.** PAKT checks that every piece of product knowledge content follows one style guide. That covers KB articles and guides, release notes, UX microcopy, and API documentation.
+**Portable Agentic Knowledge Toolkit.** PAKT checks that every piece of product knowledge content follows one style guide. That covers KB articles, learning content, release notes, UX microcopy, API documentation, and GTM briefs.
 
-PAKT ships as a Claude Code plugin with ten skills for documentation teams, technical writers, and knowledge managers. A command-line tool, `pakt`, runs the deterministic checks that the skills build on. An eval harness, `pakt-eval`, measures how accurate the reviewers and the rewriter are.
+PAKT ships as a Claude Code plugin with eleven skills for documentation teams, technical writers, and knowledge managers. A command-line tool, `pakt`, runs the deterministic checks that the skills build on. An eval harness, `pakt-eval`, measures how accurate the reviewers and the rewriter are.
 
 The default style guide is Signal, a guide for clear, concise, and easy-to-scan writing. A team can swap in its own guide without touching any skill.
 
@@ -10,10 +10,11 @@ The default style guide is Signal, a guide for clear, concise, and easy-to-scan 
 
 | Skill | What it does |
 |---|---|
-| `review-kb-article` | Scores a KB article, guide, or troubleshooting page against the guide and KB conventions. |
+| `review-kb-article` | Scores a KB article against its subtype: task, concept, troubleshooting, walkthrough, concept guide, tutorial, or quickstart. |
 | `review-release-notes` | Scores release notes or a changelog against the guide and release-note conventions. |
 | `review-ui-microcopy` | Scores UI strings, such as buttons, errors, empty states, and tooltips, string by string. |
 | `review-api-docs` | Scores an API reference page against the guide and API conventions. |
+| `review-gtm-brief` | Scores a GTM or product handoff brief against the guide and the five mandatory sections. |
 | `content-audit` | Scores every file in a docs folder, ranks them worst-first, and counts findings per rule. |
 | `release-notes-drafter` | Turns commits, pull requests, or tickets into a draft that a person must approve. |
 | `terminology-check` | Builds a product glossary and flags variant terms, banned words, and undefined jargon. |
@@ -21,7 +22,7 @@ The default style guide is Signal, a guide for clear, concise, and easy-to-scan 
 | `pakt-setup` | Interviews a team, then picks or builds its style guide and writes its configuration. |
 | `signal-rewrite` | Rewrites a messy snippet to follow the active guide without changing its facts. |
 
-Every reviewer returns the same report: a score from 1 to 10 for each of four criteria, a verdict, and line-level findings. Each finding carries a quote, a rule ID, and a fix. For the format, see [the review report reference](reference/review-report.md).
+Every reviewer returns the same report: four scores from 1 to 10, a verdict, and line-level findings. Each finding carries a quote, a rule ID, and a fix. For the format, see [the review report reference](reference/review-report.md).
 
 ## How the reviewers work
 
@@ -30,7 +31,7 @@ Each review has two layers:
 - **Deterministic checks** – Regex and structure checks that run offline in milliseconds. Examples include sentence length, contractions, heading case, and a release note's sections.
 - **Judgment** – Rules that a regex cannot judge, such as one term per concept. Claude applies them inside the skills, or through `pakt review --model`.
 
-The rules file of the active guide decides which rules exist, which layer runs each one, and the threshold of every check.
+The rules file of the active guide decides which rules exist and which layer runs each one. It also sets every threshold for each content type.
 
 ## Install
 
@@ -95,9 +96,9 @@ PAKT bundles two guides. Signal is the default. Plainspoken is a minimal second 
 
 ### `pakt`
 
-- **`pakt guide`** – Show the active guide. Add `--rules` to list its rules.
-- **`pakt types`** – List the content types and their structural requirements.
-- **`pakt lint FILE...`** – Run the deterministic checks and print one line per finding.
+- **`pakt guide`** – Show the active guide. Add `--rules` to list its rules, and `--type` to see them for one content type.
+- **`pakt types`** – List the content types, subtypes, and structural requirements.
+- **`pakt lint FILE...`** – Run the deterministic checks and print one line per finding. Add `--type` to apply the rules of one content type.
 - **`pakt review FILE`** – Score one file. Useful flags: `--type`, `--json`, `--glossary`, and `--model`.
 - **`pakt audit [DIR]`** – Score every file and rank them worst-first. Add `--fail-on fail` to fail a CI build.
 - **`pakt terms FILE...`** – Check terminology against a glossary. Use `--suggest DIR` to draft a glossary.
@@ -120,7 +121,7 @@ PAKT bundles two guides. Signal is the default. Plainspoken is a minimal second 
 
 A reviewer is only useful when its findings are right. The eval harness measures that with two test sets:
 
-- **Reviewer sets** – 32 short documents, eight per content type, with hand-labeled rule violations. `pakt-eval review-eval` reports precision, recall, and F1 by rule, by rule kind, and by content type.
+- **Reviewer sets** – 42 short documents across five content families, with hand-labeled rule violations. `pakt-eval review-eval` reports precision, recall, and F1 by rule, by rule kind, and by content type.
 - **Rewrite set** – 25 messy snippets. `pakt-eval run` compares four rewrite prompts on style and meaning, with a second model as the judge.
 
 Every test runs offline with fake model clients. For the walkthrough, see [the eval harness guide](docs/eval-harness.md). For the terms, see [the glossary](docs/glossary.md).
@@ -138,12 +139,13 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 ```text
 .
 ├── .claude-plugin/             plugin manifest and marketplace entry
-├── skills/                     ten skills, one folder each
+├── skills/                     eleven skills, one folder each
 ├── reference/                  shared instructions that the skills read
 ├── styleguides/
 │   ├── signal/                 default guide: guide.md and rules.toml
 │   └── plainspoken/            minimal second guide
-├── content-types.toml          structural conventions per content type
+├── content-types.toml          content types, subtypes, and tags
+├── tools/sync_signal.py        copies the upstream Signal guide into the bundle
 ├── pakt/                       the pakt package and CLI
 ├── prompts/                    rewrite variants, the judge rubric, and the review rubric
 ├── evals/
@@ -157,6 +159,7 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 
 ## Status
 
-- **Toolkit** – The CLI, the ten skills, and the pluggable guides work, and the tests cover them.
+- **Toolkit** – The CLI, the eleven skills, and the pluggable guides work, and the tests cover them.
 - **Results** – No real model run exists yet, so `evals/results/` holds no reports. The deterministic layer finds every check-kind label in the reviewer sets. The judgment layer still needs a measured run.
+- **Post-mortems** – PAKT detects incident post-mortems and applies the voice rules to them. No reviewer skill covers them yet.
 - **Next** – Run `pakt-eval review-eval --mode model` with a key, then review the labels with a second writer.

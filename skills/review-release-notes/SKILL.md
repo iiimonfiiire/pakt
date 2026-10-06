@@ -12,7 +12,7 @@ Produce one scored report for one set of release notes. The report follows `refe
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
 - **The guide** – The `guide.md` of the active guide.
-- **The judgment rules** – The output of `pakt guide --rules --kind judgment --json`.
+- **The effective rules** – The output of `pakt guide --rules --type release_note --json`. Release notes use a corporate voice, so some rules differ from other content types.
 - **The release-note conventions** – The `release_note` entry in the output of `pakt types --json`. The active guide can rename the section headings, so take them from this output.
 
 ## 2. Run the deterministic pass
@@ -27,9 +27,9 @@ Keep every finding from this output. Each one is a fact that carries a rule ID a
 
 Read the notes as a customer who skims them before an upgrade. Check every judgment rule from the guide and every release-note requirement without a `check`. These questions help:
 
-- **Reader impact** – Does each line say what changed for the reader, not what changed in the code?
-- **Internal noise** – Does any line describe a refactor, a test, a build step, or a dependency bump that no reader can see?
-- **Breaking changes** – Can a reader follow each migration note without asking anyone?
+- **Capability first** – Does each line name the new capability, not the work that the team did?
+- **Internal noise** – Does any line describe a refactor, a test, or a build step that stays invisible to readers?
+- **Deprecations** – Does each deprecation callout name the feature, the end-of-life date, the impact, the reason, and the migration path?
 - **Placement** – Does each change sit under the right heading?
 - **Precision** – Does each line name the feature, the version, and the limit or value that changed?
 

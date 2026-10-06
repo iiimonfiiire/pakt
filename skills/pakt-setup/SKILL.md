@@ -18,7 +18,7 @@ Interview the team before you change any file. Then write the configuration and 
 
 Cover these topics:
 
-1. **Content** – Which content types the team writes: KB articles, release notes, UX microcopy, API docs, or other docs. Where each type lives in the repository.
+1. **Content** – Which content types the team writes, and where each type lives in the repository. Run `pakt types` to list them, including the KB subtypes.
 2. **Style guide** – Pick one option:
    - Signal, the default guide.
    - Another bundled guide. Run `pakt guide` to list them.
@@ -54,4 +54,4 @@ Hand over to the `terminology-check` skill to build the first glossary from the 
 
 1. Run `pakt guide`, and confirm that it names the chosen guide and `.pakt.toml` as the source.
 2. Run `pakt audit <docs folder> --limit 10`, and walk the team through the top of the report.
-3. Explain the next skills to use: the four reviewer skills, `content-audit`, `release-notes-drafter`, and `docs-gap-finder`.
+3. Explain the next skills to use: the five reviewer skills, `content-audit`, `release-notes-drafter`, and `docs-gap-finder`.

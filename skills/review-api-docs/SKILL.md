@@ -12,7 +12,7 @@ Produce one scored report for one API reference page. The report follows `refere
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
 - **The guide** – The `guide.md` of the active guide.
-- **The judgment rules** – The output of `pakt guide --rules --kind judgment --json`.
+- **The effective rules** – The output of `pakt guide --rules --type api_doc --json`.
 - **The API conventions** – The `api_doc` entry in the output of `pakt types --json`.
 
 ## 2. Run the deterministic pass

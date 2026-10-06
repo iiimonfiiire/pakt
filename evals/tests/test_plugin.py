@@ -15,7 +15,7 @@ from .conftest import REPO_ROOT
 
 SKILLS = sorted(p.parent.name for p in (REPO_ROOT / "skills").glob("*/SKILL.md"))
 EXPECTED = {
-    "review-kb-article", "review-release-notes", "review-ui-microcopy", "review-api-docs",
+    "review-kb-article", "review-release-notes", "review-ui-microcopy", "review-api-docs", "review-gtm-brief",
     "content-audit", "release-notes-drafter", "terminology-check", "docs-gap-finder",
     "pakt-setup", "signal-rewrite",
 }

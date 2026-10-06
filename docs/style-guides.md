@@ -71,25 +71,54 @@ These checks exist. A guide can use any of them, under any rule ID, with its own
 - **`bold_leadin`** – A bold bullet lead-in followed by a colon or a period.
 - **`latin_abbrev`** – `e.g.` or `i.e.` without a following comma.
 - **`link_text`** – Generic link text such as `click here`.
-- **`heading_case`** – Headings in Title Case.
+- **`heading_case`** – Headings in Title Case. Words that the prose capitalizes mid-sentence count as names.
 - **`banned_terms`** – Whole-word matches of the terms in `params.terms`.
+- **`first_person`** – The pronouns `we`, `our`, and `I`.
+- **`semicolons`** – Semicolons in prose. With `scope = "steps"`, only numbered steps count.
+- **`citations`** – Inline parenthetical citations, plus footnote markers unless `footnotes = "allowed"`.
+- **`all_caps`** – All-caps emphasis words such as `IMPORTANT`. Acronyms and HTTP methods pass.
+- **`ui_case`** – Title Case in UI strings of the kinds in `params.kinds`. Navigation items pass.
 
 Every check masks code blocks, inline code, and URLs first, so literal identifiers never trigger a prose rule.
 
+## Rules that change by content type
+
+A rule can behave differently for one content type. Add a `by_type` table under the rule:
+
+```toml
+[[rules]]
+id = "sentence_length"
+severity = "error"
+summary = "Cap sentences by content type."
+check = "sentence_length"
+params = { max_words = 20 }
+[rules.by_type.ui_microcopy]
+params = { max_words = 12 }
+[rules.by_type.conceptual]
+params = { max_words = 28 }
+```
+
+An override can change `params`, `severity`, `summary`, or `check`. It can also set `enabled = false` to turn the rule off. Set `check = ""` to make a deterministic rule a judgment rule for that type.
+
+The key of a `by_type` table names a content type, a parent type, or a tag. PAKT tries the exact type first, then the parent, then each tag. Run `pakt guide --rules --type <type>` to see the result for one type.
+
 ## Content types
 
-Structural conventions live apart from the guide, in `content-types.toml`. They say what shape a KB article, a release note, a set of UI strings, or an API page must have. A guide can replace any requirement by ID:
+The file `content-types.toml` defines the content types, their path hints, and their tags, such as `procedural`. A subtype also names its parent. The file holds no requirements.
+
+Each guide supplies the requirements for each type in its own `rules.toml`. A requirement cites its guide section, like any rule. A subtype inherits the requirements of its parent and can replace them by ID:
 
 ```toml
 [[content_types.release_note.requirements]]
 id = "rn_sections"
+section = "Release notes"
 severity = "error"
 summary = "Group changes under Added, Changed, Fixed, and Removed."
 check = "allowed_headings"
-params = { allowed = ["Added", "Changed", "Fixed", "Removed"] }
+params = { allowed = ["Added", "Changed", "Fixed", "Removed"], ordered = true }
 ```
 
-The release-notes drafter reads the section names from this requirement, so a renamed section reaches the drafts too.
+The release-notes drafter reads the section names from this requirement. A renamed section therefore reaches the drafts too.
 
 ## Create a guide
 
@@ -122,6 +151,18 @@ PAKT checks four places in order, and the first match wins:
 4. **Default** – The bundled Signal guide.
 
 Run `pakt guide` to see which guide is active and which of these places chose it.
+
+## Keep Signal in sync
+
+The bundled Signal guide is a copy of an upstream file. To refresh it, point the sync script at the upstream copy:
+
+```bash
+python tools/sync_signal.py --source path/to/SIGNAL.md
+```
+
+The script strips the logo and the author line, then writes `styleguides/signal/guide.md`. It also stamps the revision date into `rules.toml` as the version. Review `rules.toml` by hand afterward, because the script cannot translate new prose into rules.
+
+The test suite checks that the version in `rules.toml` matches the revision date in `guide.md`. When `SIGNAL_SOURCE` points at the upstream file, it also checks that the bundled copy matches a fresh sync. Run `python tools/sync_signal.py --check` to see any drift.
 
 ## The second example guide
 

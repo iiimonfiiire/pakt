@@ -69,14 +69,14 @@ Each variant is a Markdown file in `prompts/`. A short header holds an `id`, a `
 Every variant asks for the same output format, which keeps extraction and scoring identical across variants.
 
 - **v1, zero-shot** – A two-sentence instruction that names the Signal style but gives no rules. Hypothesis: the model's generic idea of clear writing drifts from Signal, especially on contractions, dashes, and sentence length. This variant sets the floor.
-- **v2, distilled rules** – Fifteen explicit, checkable rules taken from the Signal guide. Hypothesis: naming the rules closes most rule failures, and meaning stays level because no examples push the model toward a template.
+- **v2, distilled rules** – Nineteen explicit, checkable rules taken from the Signal guide. Hypothesis: naming the rules closes most rule failures. Meaning stays level, because no examples push the model toward a template.
 - **v3, few-shot plus rules** – The v2 rules plus three worked examples of a messy input and a clean rewrite. Hypothesis: examples teach register and structure that rules describe poorly. Risk: the model copies example structure onto snippets where it does not fit.
 - **v4, plan then write** – The v2 rules plus a three-step process: list the facts, list the rule problems, then write. Hypothesis: the fact list works as a checklist and improves meaning preservation. Cost: more output tokens and higher latency.
 
 Two design choices matter for a fair comparison:
 
 - **No leakage** – The few-shot examples in v3 are not in the test set. A prompt that contains test answers scores well for the wrong reason.
-- **Rule margin** – The prompts ask for 20 words per sentence at most, while the check allows 22. The gap matches the Signal guide's own range of 20 to 22 words.
+- **Per-type rules** – The prompts state the sentence cap for each content type. The checks apply the same caps, because the harness maps each test category to a content type.
 
 ## The scorers
 
@@ -88,14 +88,14 @@ The rule checks live in `pakt/rules.py`. Each check is a small function that tak
 
 The active guide's `rules.toml` decides which checks run, under which rule IDs, and with which thresholds. The list below describes the bundled Signal guide.
 
-- **`sentence_length`** – Fails any sentence over 22 words. Limit: sentence splitting is heuristic and can misjudge unusual abbreviations.
+- **`sentence_length`** – Fails any sentence over the cap for its content type. Limit: sentence splitting is heuristic and can misjudge unusual abbreviations.
 - **`em_dash`** – Fails a spaced em dash. It also fails hyphens that stand in for a dash, and two em dashes in one sentence. Limit: the check cannot tell whether a single dash marks a real tone shift.
 - **`contractions`** – Fails forms such as `don't`, `it's`, and `you'll`. Limit: it skips the ambiguous `'s` on nouns, because that is usually a possessive.
 - **`oxford_comma`** – Fails lists such as `A, B and C`. Limit: one comma before `and` can start a list or end an introductory clause. The check skips segments that open with a clause word such as `if` or `when`, and it can still misfire.
 - **`back_reference`** – Fails phrases such as `as mentioned above`, `the latter`, and `the previous step`.
 - **`preamble`** – Fails assistant chatter and throat-clearing at the start or end, such as `Sure!` or `In this article`.
 - **`filler`** – Fails empty phrases such as `please note that` and `in order to`.
-- **`passive_voice`** – Signal allows passive voice only when the actor is unknown. A passive with a `by` phrase names its actor, so it always fails. Agentless passives get an allowance of one. Limit: the check matches a form of `be` plus a past participle, so it misses some passives and flags some adjectives.
+- **`passive_voice`** – Signal allows passive voice only when the actor is unknown. A passive with a `by` phrase names its actor, so it always fails. Agentless passives get an allowance of one. Limit: the check matches a form of `be` plus a past participle. It therefore misses some passives and flags some adjectives.
 - **`hedging`** – Fails softeners such as `perhaps`, `probably`, and `you might want to`. It deliberately allows `may`, which often states a real possibility.
 - **`second_person`** – Fails instructions aimed at `the user` or `the developer` instead of `you`.
 - **`ampersand`** – Fails any `&` in prose.
@@ -135,7 +135,7 @@ LLM judges have known biases. The harness does not remove them. It reduces them 
 - **Drift and noise** – The judge runs at temperature 0 with a fixed rubric file. The report records the rubric hash, so a changed rubric is visible.
 - **Unknown accuracy** – Nobody knows how often the judge is right until someone checks. The command `pakt-eval judge-check` runs the judge on eight hand-labeled pairs and reports how often it agrees with the labels.
 
-The spot-check pairs live in `evals/data/judge_spot_check.jsonl`. They cover clear cases: a clean rewrite, a dropped fact, an invented fact, and a contradiction. Others cover a changed number and faithful but wordy text. The toolkit author wrote the labels. Relabel them yourself before you rely on the agreement number, because a judge can only agree with labels that are right.
+The spot-check pairs live in `evals/data/judge_spot_check.jsonl`. They cover clear cases: a clean rewrite, a dropped fact, an invented fact, and a contradiction. Others cover a changed number and faithful but wordy text. The toolkit author wrote the labels. Relabel them yourself before you rely on the agreement number. A judge can only agree with labels that are right.
 
 Eight pairs are a smoke test, not a validation. A judge that fails them does not work. A judge that passes them still needs a larger check before you trust small score differences.
 
@@ -209,10 +209,10 @@ A reviewer reads a document and reports rule violations. The reviewer eval check
 
 The sets live in `evals/data/reviewer/`, with one JSONL file per content type. The script `evals/tools/build_reviewer_sets.py` generates them and is the source of truth.
 
-There are 32 documents, eight per content type. Two documents in each type are clean, with no violations, so the eval can catch false alarms. Each record has these fields:
+There are 42 documents in five families: KB articles, release notes, UX microcopy, API docs, and GTM briefs. The KB family covers all seven subtypes. Each family holds at least two clean documents, with no violations, so the eval can catch false alarms. Each record has these fields:
 
 - **`id`** – A stable name such as `rn-r03`.
-- **`content_type`** – One of `kb_article`, `release_note`, `ui_microcopy`, or `api_doc`.
+- **`content_type`** – A content type ID from `content-types.toml`, such as `kb_task` or `gtm_brief`.
 - **`text`** – The whole document, written by hand for a fictional product.
 - **`violations`** – The rule IDs that the document breaks. A label can name a guide rule or a content-type requirement.
 - **`notes`** – Optional. Why a judgment label applies.
@@ -228,7 +228,7 @@ The eval scores pairs of a document and a rule ID:
 - **False positive** – The reviewer reports a rule that the labels do not list.
 - **False negative** – The labels list a rule that the reviewer missed.
 
-From these counts, the report computes precision, recall, and F1. It splits them by rule kind, by content type, and by rule. It also counts the clean documents that got any finding, and it lists every document where the reviewer and the labels disagree.
+From these counts, the report computes precision, recall, and F1. It splits them by rule kind, by content type, and by rule. It also counts the clean documents that got any finding. Finally, it lists every document where the reviewer and the labels disagree.
 
 > **Note:** Pairs ignore how often a rule fires in one document and where. A reviewer that reports the right rule on the wrong sentence still scores a true positive. Line-level matching is future work.
 
@@ -249,7 +249,7 @@ Then look at the disagreements. A missed label can mean a weak reviewer or a wro
 
 ### Limits
 
-- **Small sets** – Eight documents per type detect only large differences, as with the rewrite set.
+- **Small sets** – Six to twelve documents per family detect only large differences, as with the rewrite set.
 - **One labeler** – The toolkit author wrote every label. Have a second writer relabel the sets before you trust a judgment-rule number.
 - **Guide-specific labels** – The labels use Signal rule IDs. A team with its own guide needs its own labeled set.
 
@@ -259,6 +259,10 @@ Then look at the disagreements. A missed label can mean a weak reviewer or a wro
 2. Add a record to the list for its content type, with a new `id`, the `text`, and its `violations`.
 3. Run `python evals/tools/build_reviewer_sets.py`.
 4. Run `pytest`. The suite checks that every label is a known rule ID, and that the checks find exactly the check-kind labels.
+
+## Known tension in the rewrite eval
+
+The revised guide asks error messages to leave out the reason for a failure. The meaning judge counts a dropped reason as a missing fact. Expect lower meaning scores on error messages from prompts that follow the guide closely. Read those items by hand before you call it a regression.
 
 ## Results
 
