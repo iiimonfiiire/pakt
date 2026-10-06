@@ -145,7 +145,6 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 │   ├── signal/                 default guide: guide.md and rules.toml
 │   └── plainspoken/            minimal second guide
 ├── content-types.toml          content types, subtypes, and tags
-├── tools/sync_signal.py        copies the upstream Signal guide into the bundle
 ├── pakt/                       the pakt package and CLI
 ├── prompts/                    rewrite variants, the judge rubric, and the review rubric
 ├── evals/

@@ -152,18 +152,6 @@ PAKT checks four places in order, and the first match wins:
 
 Run `pakt guide` to see which guide is active and which of these places chose it.
 
-## Keep Signal in sync
-
-The bundled Signal guide is a copy of an upstream file. To refresh it, point the sync script at the upstream copy:
-
-```bash
-python tools/sync_signal.py --source path/to/SIGNAL.md
-```
-
-The script strips the logo and the author line, then writes `styleguides/signal/guide.md`. It also stamps the revision date into `rules.toml` as the version. Review `rules.toml` by hand afterward, because the script cannot translate new prose into rules.
-
-The test suite checks that the version in `rules.toml` matches the revision date in `guide.md`. When `SIGNAL_SOURCE` points at the upstream file, it also checks that the bundled copy matches a fresh sync. Run `python tools/sync_signal.py --check` to see any drift.
-
 ## The second example guide
 
 Plainspoken lives in `styleguides/plainspoken/`. It allows contractions, raises the sentence limit, bans three words through `banned_terms`, and renames the release-note sections. The test suite runs one text through both guides. It checks that the findings differ exactly as the two rules files predict.
