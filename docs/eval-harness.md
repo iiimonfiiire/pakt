@@ -86,7 +86,7 @@ The harness uses two kinds of scorer. Rule checks are cheap, exact, and narrow. 
 
 The rule checks live in `pakt/rules.py`. Each check is a small function that takes text and returns a pass or fail with a list of violations. Before any check runs, the harness masks code blocks, inline code, and URLs. A literal command such as `git commit --amend` then never triggers a prose rule.
 
-The active guide's `rules.toml` decides which checks run, under which rule IDs, and with which thresholds. The list below describes the bundled Signal guide.
+The active guide's rules pack decides which checks run, under which rule IDs, and with which thresholds. The list below describes the Signal rules pack.
 
 - **`sentence_length`** – Fails any sentence over the cap for its content type. Limit: sentence splitting is heuristic and can misjudge unusual abbreviations.
 - **`em_dash`** – Fails a spaced em dash. It also fails hyphens that stand in for a dash, and two em dashes in one sentence. Limit: the check cannot tell whether a single dash marks a real tone shift.
@@ -105,7 +105,7 @@ The active guide's `rules.toml` decides which checks run, under which rule IDs, 
 - **`heading_case`** – Fails a heading in Title Case. Limit: a heading full of proper nouns can misfire.
 - **`key_terms`** – Fails when any `must_keep` string is missing from the output. This check is a cheap meaning signal, not a style rule.
 
-Some Signal rules have no check, because a regex cannot judge them well. These include one term per concept, numeral style, and conclusion-first ordering. In `rules.toml`, they are judgment rules. The judge's readability score covers some of this ground, and the reviewer eval measures them directly.
+Some Signal rules have no check, because a regex cannot judge them well. These include one term per concept, numeral style, and conclusion-first ordering. In the rules pack, they are judgment rules. The judge's readability score covers some of this ground, and the reviewer eval measures them directly.
 
 > **Warning:** A rule check proves only that a pattern is absent. A rewrite can pass every check and still be bad writing, or wrong.
 

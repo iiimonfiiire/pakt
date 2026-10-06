@@ -11,7 +11,7 @@ Produce one scored report for one go-to-market or product handoff brief. The rep
 
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
-- **The guide** – The `guide.md` of the active guide.
+- **The guide** – The prose of the active guide, at the path that `pakt guide show` reports.
 - **The effective rules** – The output of `pakt guide --rules --type gtm_brief --json`. A brief uses a corporate voice, so some rules differ from other content types.
 - **The brief conventions** – The `gtm_brief` entry in the output of `pakt types --json`.
 

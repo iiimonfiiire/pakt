@@ -58,6 +58,8 @@ You need Python 3.11 or later and Claude Code.
    pytest
    ```
 
+   The tests serve a fixture copy of the pinned Signal rules pack from `evals/tests/fixtures/signal/`. To check that the fixture still matches the pin, run `PAKT_NETWORK_TESTS=1 pytest`.
+
 To use the CLI outside the clone, set `PAKT_ROOT` to the clone's path.
 
 ## Quickstart
@@ -76,27 +78,78 @@ pakt release-notes draft --commits commits.txt --product Fernbook --version 2.5 
 
 In Claude Code, ask in plain words, such as "review this release note" or "audit the docs folder." The matching skill loads on its own.
 
-## Swap the style guide
+## How guides work
 
-A style guide is a folder with two files:
+PAKT holds no copy of any style guide. It reads each guide from its own source at run time. A guide has two layers:
 
-- **`guide.md`** – The full guide in prose. The skills read it at run time.
-- **`rules.toml`** – Every rule with an ID, a severity, and a summary. A rule with a `check` runs deterministically, with thresholds such as `max_words`.
+- **Prose** – The guide itself, written for people. The skills read all of it before they judge any text.
+- **Rules pack** – The same guide as data, in TOML. Every rule has an ID, a severity, a summary, and a citation to its section in the prose. A rule with a `check` runs deterministically, with thresholds such as `max_words`.
 
-To use another guide, set it in the project's `.pakt.toml` file:
+The rules pack drives the deterministic layer. The prose drives the judgment layer.
+
+### Sources and pins
+
+Set the guide in the project's `.pakt.toml` file, or pass `--guide` to any command. A source can take four forms.
+
+A GitHub repo at a ref. PAKT fetches the raw files over HTTPS:
 
 ```toml
 [styleguide]
-path = "style/house-guide"
+source = "github:example-org/house-style@v2.1.0"
+rules = "house.rules.toml"
 ```
 
-PAKT bundles two guides. Signal is the default. Plainspoken is a minimal second guide that exists to prove the swap works. To build your own guide, see [the style guide walkthrough](docs/style-guides.md), or run the `pakt-setup` skill.
+A local folder that holds the prose and a rules pack:
+
+```toml
+[styleguide]
+source = "style/house"
+```
+
+A URL to the prose, with a separate rules pack:
+
+```toml
+[styleguide]
+source = "https://docs.example.com/style-guide.md"
+rules = "style/house.rules.toml"
+sha256 = "<hash of the prose file>"
+```
+
+A public guide through a Vale package:
+
+```toml
+[styleguide]
+source = "vale:Google@v0.6.1"
+prose = "https://developers.google.com/style"
+```
+
+PAKT caches fetched files in your user cache folder. Set `PAKT_CACHE_DIR` to move it. A pinned source never refetches, so PAKT works offline after the first fetch. A commit SHA, a version tag, or a `sha256` value counts as a pin. An unpinned source, such as a `main` branch, works too, but PAKT warns that its results are not reproducible.
+
+Run `pakt guide show` to see the active guide and its source. Run `pakt guide fetch` to download it ahead of time.
+
+### The default guide
+
+With no guide configured, PAKT uses Signal, a guide for clear, concise, and easy-to-scan writing. PAKT fetches Signal and its rules pack from the public Signal repo, pinned to one commit in `config.toml`.
+
+### Vale packages
+
+A `vale:` source uses [Vale](https://vale.sh), a separate command-line linter, as the deterministic layer. PAKT writes a Vale configuration in its cache, runs `vale sync` once, and maps every Vale alert to a finding. The rule ID is the Vale check name, such as `Google.Contractions`.
+
+Vale is optional. Install it with `brew install vale`, or follow [the Vale install guide](https://vale.sh/docs/install). Set `prose` to give the judgment layer the guide text. Set `requirements` to a local file to add content-type requirements, because a Vale package has none.
+
+### Defaults that a guide can change
+
+- **Release-note headings** – The Signal pack requires all six headings, in order. The drafter writes "No changes in this release." under each empty one. A guide can drop `required` from its `rn_sections` requirement.
+- **Footnotes** – The `citations` check flags footnote markers, because Signal deprecates them for the web. A guide for print can set `footnotes = "allowed"` on that rule.
+
+To build your own guide, see [the style guide walkthrough](docs/style-guides.md), or run the `pakt-setup` skill. Plainspoken, a minimal guide in `styleguides/plainspoken/`, shows the format.
 
 ## Commands
 
 ### `pakt`
 
-- **`pakt guide`** – Show the active guide. Add `--rules` to list its rules, and `--type` to see them for one content type.
+- **`pakt guide fetch`** – Download the active guide into the cache, and refresh an unpinned source.
+- **`pakt guide`** – Show the active guide and its source. Add `--rules` to list its rules, and `--type` to see them for one content type.
 - **`pakt types`** – List the content types, subtypes, and structural requirements.
 - **`pakt lint FILE...`** – Run the deterministic checks and print one line per finding. Add `--type` to apply the rules of one content type.
 - **`pakt review FILE`** – Score one file. Useful flags: `--type`, `--json`, `--glossary`, and `--model`.
@@ -128,8 +181,8 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 
 ## Configuration
 
-- **`config.toml`** – The default guide, models, token limits, prices, and paths.
-- **`.pakt.toml`** – Per project: the guide, the glossary, file patterns, and content-type paths.
+- **`config.toml`** – The default guide source and pin, models, token limits, prices, and paths.
+- **`.pakt.toml`** – Per project: the guide source, the glossary, file patterns, and content-type paths.
 - **`.env`** – The API key and model overrides. Copy `.env.example`, then run `chmod 600 .env`. Git ignores the file.
 
 > **Note:** The prices in `config.toml` serve cost estimates only. Check them against current published pricing before you quote a cost.
@@ -141,9 +194,7 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 ├── .claude-plugin/             plugin manifest and marketplace entry
 ├── skills/                     eleven skills, one folder each
 ├── reference/                  shared instructions that the skills read
-├── styleguides/
-│   ├── signal/                 default guide: guide.md and rules.toml
-│   └── plainspoken/            minimal second guide
+├── styleguides/plainspoken/    minimal example guide: guide.md and rules.toml
 ├── content-types.toml          content types, subtypes, and tags
 ├── pakt/                       the pakt package and CLI
 ├── prompts/                    rewrite variants, the judge rubric, and the review rubric
@@ -158,7 +209,8 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 
 ## Status
 
-- **Toolkit** – The CLI, the eleven skills, and the pluggable guides work, and the tests cover them.
+- **Toolkit** – The CLI, the eleven skills, and the guide sources work, and the tests cover them.
+- **Default pin** – The pin points at a Signal commit that adds the rules pack. Until that commit is public, fetching the default fails. Set a local Signal folder as the source meanwhile.
 - **Results** – No real model run exists yet, so `evals/results/` holds no reports. The deterministic layer finds every check-kind label in the reviewer sets. The judgment layer still needs a measured run.
 - **Post-mortems** – PAKT detects incident post-mortems and applies the voice rules to them. No reviewer skill covers them yet.
 - **Next** – Run `pakt-eval review-eval --mode model` with a key, then review the labels with a second writer.

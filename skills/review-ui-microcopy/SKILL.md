@@ -20,7 +20,7 @@ When the person pastes strings into the chat, save them in the kind-line format 
 
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
-- **The guide** – The `guide.md` of the active guide.
+- **The guide** – The prose of the active guide, at the path that `pakt guide show` reports.
 - **The effective rules** – The output of `pakt guide --rules --type ui_microcopy --json`. Several rules differ for microcopy, such as the sentence cap and contractions.
 - **The microcopy conventions** – The `ui_microcopy` entry in the output of `pakt types --json`.
 

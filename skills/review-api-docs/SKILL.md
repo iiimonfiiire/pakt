@@ -11,7 +11,7 @@ Produce one scored report for one API reference page. The report follows `refere
 
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
-- **The guide** – The `guide.md` of the active guide.
+- **The guide** – The prose of the active guide, at the path that `pakt guide show` reports.
 - **The effective rules** – The output of `pakt guide --rules --type api_doc --json`.
 - **The API conventions** – The `api_doc` entry in the output of `pakt types --json`.
 

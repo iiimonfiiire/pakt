@@ -25,7 +25,7 @@ Every KB article belongs to one subtype, and each subtype has its own structure:
 
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
-- **The guide** – The `guide.md` of the active guide.
+- **The guide** – The prose of the active guide, at the path that `pakt guide show` reports.
 - **The effective rules** – The output of `pakt guide --rules --type <subtype> --json`. Sentence caps and other rules change by subtype.
 - **The subtype conventions** – The entry for the subtype in the output of `pakt types --json`. A subtype inherits the requirements of `kb_article`.
 

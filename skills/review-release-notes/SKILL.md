@@ -11,7 +11,7 @@ Produce one scored report for one set of release notes. The report follows `refe
 
 Follow `reference/active-guide.md` at the PAKT root. Then read these files in full:
 
-- **The guide** – The `guide.md` of the active guide.
+- **The guide** – The prose of the active guide, at the path that `pakt guide show` reports.
 - **The effective rules** – The output of `pakt guide --rules --type release_note --json`. Release notes use a corporate voice, so some rules differ from other content types.
 - **The release-note conventions** – The `release_note` entry in the output of `pakt types --json`. The active guide can rename the section headings, so take them from this output.
 
