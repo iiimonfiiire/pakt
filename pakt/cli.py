@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 from pathlib import Path
@@ -11,11 +12,12 @@ from pathlib import Path
 from . import audit as audit_mod
 from . import gaps as gaps_mod
 from . import release_notes as rn
-from .config import PROJECT_FILE, ConfigError, Settings, find_root, load_settings, require_api_key
+from .config import PROJECT_FILE, ConfigError, Settings, _load_dotenv, find_root, load_settings, require_api_key, resolve_guide
 from .document import load_document, parse_document
 from .review import load_template, review, verdict_for
 from .structure import detect_type, load_content_types, refine_type
-from .styleguide import bundled_guides, get_guide
+from .sources import bundled_guides
+from .styleguide import get_guide
 from .terminology import check_terms, load_glossary, suggest_glossary
 
 
@@ -41,6 +43,16 @@ def _rel(path: Path, settings: Settings) -> str:
 
 
 def cmd_guide(args) -> int:
+    if args.action == "fetch":
+        root = find_root()
+        _load_dotenv(root)
+        g = resolve_guide(root, Path.cwd(), args.guide, refresh=True)
+        print(f"Fetched {g.label} from {g.source}")
+        if g.engine == "vale":
+            from . import vale
+
+            print(f"  synced Vale package into {vale.sync(g)}")
+        return 0
     s = _settings(args)
     g = s.guide
     ctype = None
@@ -59,8 +71,11 @@ def cmd_guide(args) -> int:
         return 0
     print(f"Active style guide: {g.label} ({g.id})")
     print(f"  selected by: {g.origin}")
-    print(f"  guide:       {g.document}")
-    print(f"  rules:       {g.directory / 'rules.toml'}")
+    print(f"  source:      {g.source} ({'pinned' if g.pinned else 'not pinned'})")
+    print(f"  engine:      {'Vale, for the deterministic layer' if g.engine == 'vale' else 'PAKT rules pack'}")
+    print(f"  prose:       {g.document if g.has_prose else 'none configured'}")
+    if g.rules_file:
+        print(f"  rules pack:  {g.rules_file}")
     print(f"  rule count:  {len(g.checkable)} deterministic, {len(g.judgment)} judgment")
     if args.rules:
         if args.type:
@@ -244,9 +259,9 @@ def cmd_init(args) -> int:
     if target.exists() and not args.force:
         print(f"error: {PROJECT_FILE} already exists. Pass --force to overwrite.", file=sys.stderr)
         return 1
-    choice = args.guide or "signal"
-    key = "path" if ("/" in choice or Path(choice).is_dir()) else "name"
-    lines = ["[styleguide]", f'{key} = "{choice}"', ""]
+    lines = ["[styleguide]"]
+    lines += [f'source = "{args.guide}"'] if args.guide else ["# No source set: PAKT uses Signal, pinned in its config.toml.", '# source = "signal"']
+    lines.append("")
     if args.glossary:
         lines += ["[glossary]", f'path = "{args.glossary}"', ""]
     lines += [
@@ -261,15 +276,23 @@ def cmd_init(args) -> int:
 
 def cmd_new_guide(args) -> int:
     if args.source:
-        source = get_guide(args.source, find_root(), Path.cwd()).directory
+        g = get_guide(args.source, find_root(), Path.cwd())
     else:
-        source = _settings(args).guide.directory
+        g = _settings(args).guide
+    if g.rules_file is None:
+        print(f"error: {g.label} has no rules pack to copy. Write rules.toml by hand.", file=sys.stderr)
+        return 1
     dest = Path(args.dir)
     if dest.exists() and any(dest.iterdir()):
         print(f"error: {dest} is not empty", file=sys.stderr)
         return 1
-    shutil.copytree(source, dest, dirs_exist_ok=True)
-    print(f"Copied {source.name} to {dest}. Edit guide.md and rules.toml, then set [styleguide] path in {PROJECT_FILE}.")
+    dest.mkdir(parents=True, exist_ok=True)
+    text = g.rules_file.read_text(encoding="utf-8")
+    if g.has_prose:
+        shutil.copyfile(g.document, dest / "guide.md")
+        text = re.sub(r'(?m)^document = "[^"]*"', 'document = "guide.md"', text, count=1)
+    (dest / "rules.toml").write_text(text, encoding="utf-8")
+    print(f"Copied {g.label} to {dest}. Edit guide.md and rules.toml, then set [styleguide] source in {PROJECT_FILE}.")
     return 0
 
 
@@ -283,7 +306,9 @@ def build_parser() -> argparse.ArgumentParser:
         sp.set_defaults(fn=fn)
         return sp
 
-    g = add("guide", cmd_guide, "show the active style guide and where the choice came from")
+    g = add("guide", cmd_guide, "show the active style guide, or fetch it into the cache")
+    g.add_argument("action", nargs="?", choices=["show", "fetch"], default="show",
+                   help="show (default), or fetch: download the guide and refresh unpinned sources")
     g.add_argument("--rules", action="store_true", help="list the rules")
     g.add_argument("--kind", choices=["check", "judgment"])
     g.add_argument("--type", help="show the effective rules for one content type")

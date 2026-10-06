@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pakt.config import PLACEHOLDER_KEYS, ConfigError, _load_dotenv, require_api_key  # noqa: F401
 from pakt.config import find_root as _find_root
-from pakt.styleguide import StyleGuide, default_guide, get_guide
+from pakt.styleguide import StyleGuide, default_guide, default_source, get_guide
 
 
 @dataclass
@@ -70,7 +70,6 @@ def load_config(root: Path | None = None) -> Config:
     def path(key: str, default: str) -> Path:
         return root / paths.get(key, default)
 
-    guide_name = data.get("styleguide", {}).get("active", "signal")
     return Config(
         root=root,
         generator_model=os.environ.get("PAKT_GENERATOR_MODEL") or models["generator"],
@@ -82,7 +81,7 @@ def load_config(root: Path | None = None) -> Config:
         judge_temperature=_optional_float(judge.get("temperature", 0.0)),
         judge_prompt=root / judge.get("prompt", "prompts/judge/v1.md"),
         judge_pass_threshold=int(judge.get("pass_threshold", 4)),
-        guide=get_guide(guide_name, root, root, origin="config.toml"),
+        guide=get_guide(default_source(root), root, root, origin="config.toml"),
         pricing=pricing,
         testset=path("testset", "evals/data/testset.jsonl"),
         spot_check=path("spot_check", "evals/data/judge_spot_check.jsonl"),

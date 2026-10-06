@@ -1,15 +1,19 @@
-# Machine-readable rules for the Signal style guide.
-# Every rule and requirement cites the guide.md section it comes from, as
+# Signal rules pack: the machine-readable companion to SIGNAL.md.
+# Tools such as PAKT read this file to check prose against Signal.
+# Every rule cites the SIGNAL.md section it comes from, as
 # "<## heading>" or "<## heading> > <### heading or bold lead-in>".
 # A rule with a `check` runs deterministically. A rule without one needs judgment.
-# A `by_type` table changes a rule for a content type, its parent, or a tag
-# from content-types.toml: override `params`, `severity`, or `check`, or set `enabled = false`.
+# A `by_type` table changes a rule for a content type, a parent type, or a tag:
+# override `params`, `severity`, `summary`, or `check`, or set `enabled = false`.
+# [content_types.<type>] tables hold the structural requirements of SIGNAL.md section 10.
+# Keep `version` equal to the "Last revision" date in SIGNAL.md.
 
 [guide]
 id = "signal"
 name = "Signal"
 version = "2026-10-06"
-document = "guide.md"
+document = "SIGNAL.md"
+format = 1
 description = "Clear, concise, and easy-to-scan writing for UX writing, technical writing, and knowledge management."
 
 # ------------------------------------------------------------ voice and register

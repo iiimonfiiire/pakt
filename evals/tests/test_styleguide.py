@@ -14,11 +14,16 @@ def _failed(text, guide):
     return {r.rule for r in run_rules(text, (), guide) if not r.passed}
 
 
-def test_bundled_guides_load_and_validate():
-    assert {"signal", "plainspoken"} <= set(bundled_guides(REPO_ROOT))
-    for name in bundled_guides(REPO_ROOT):
+def test_only_the_example_guide_is_bundled():
+    assert set(bundled_guides(REPO_ROOT)) == {"plainspoken"}
+    for name in ("plainspoken", "signal"):
         guide = get_guide(name, REPO_ROOT)
-        assert guide.checkable and guide.document.is_file()
+        assert guide.checkable and guide.has_prose
+
+
+def test_signal_resolves_to_the_pinned_default():
+    guide = get_guide("signal", REPO_ROOT)
+    assert guide.source.startswith("github:iiimonfiiire/signal-style-guide@") and guide.pinned
 
 
 def test_signal_guide_shape():

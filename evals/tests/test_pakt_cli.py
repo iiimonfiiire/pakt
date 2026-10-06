@@ -141,7 +141,7 @@ def test_release_notes_approve_blocks_error_findings(tmp_path, capsys):
 def test_init_and_new_guide(tmp_path, capsys):
     assert cli.main(["init", "--guide", "style/house", "--glossary", "glossary.toml"]) == 0
     text = (tmp_path / ".pakt.toml").read_text()
-    assert 'path = "style/house"' in text and 'path = "glossary.toml"' in text
+    assert 'source = "style/house"' in text and 'path = "glossary.toml"' in text
     assert cli.main(["init"]) == 1
     assert cli.main(["new-guide", "style/house", "--from", "plainspoken"]) == 0
     assert (tmp_path / "style" / "house" / "rules.toml").is_file()
@@ -151,9 +151,9 @@ def test_init_and_new_guide(tmp_path, capsys):
 
 
 def test_custom_guide_folder_with_its_own_threshold(tmp_path, capsys):
-    shutil.copytree(REPO_ROOT / "styleguides" / "signal", tmp_path / "house")
-    rules = (tmp_path / "house" / "rules.toml").read_text().replace("params = { max_words = 20 }", "params = { max_words = 5 }")
-    (tmp_path / "house" / "rules.toml").write_text(rules)
+    shutil.copytree(REPO_ROOT / "evals" / "tests" / "fixtures" / "signal", tmp_path / "house")
+    pack = tmp_path / "house" / "signal.rules.toml"
+    pack.write_text(pack.read_text().replace("params = { max_words = 20 }", "params = { max_words = 5 }"))
     (tmp_path / "page.md").write_text("This sentence has exactly seven words.\n")
     assert cli.main(["lint", "page.md"]) == 0
     assert cli.main(["lint", "page.md", "--guide", "house"]) == 1

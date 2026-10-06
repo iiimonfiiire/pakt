@@ -1,0 +1,37 @@
+{
+  "input.md": [
+    {
+      "Action": {"Name": "replace", "Params": ["can't"]},
+      "Span": [1, 6],
+      "Check": "Google.Contractions",
+      "Description": "",
+      "Link": "https://developers.google.com/style/contractions",
+      "Message": "Use 'can't' instead of 'cannot'.",
+      "Severity": "suggestion",
+      "Match": "cannot",
+      "Line": 3
+    },
+    {
+      "Action": {"Name": "", "Params": null},
+      "Span": [1, 2],
+      "Check": "Google.We",
+      "Description": "",
+      "Link": "https://developers.google.com/style/pronouns#personal-pronouns",
+      "Message": "Try to avoid using first-person plural like 'We'.",
+      "Severity": "warning",
+      "Match": "",
+      "Line": 5
+    },
+    {
+      "Action": {"Name": "remove", "Params": null},
+      "Span": [28, 28],
+      "Check": "Google.Exclamation",
+      "Description": "",
+      "Link": "https://developers.google.com/style/exclamation-points",
+      "Message": "Don't use exclamation points in text.",
+      "Severity": "error",
+      "Match": "!",
+      "Line": 5
+    }
+  ]
+}

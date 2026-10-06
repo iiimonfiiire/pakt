@@ -1,13 +1,13 @@
-"""Pluggable style guides: a prose guide.md plus a machine-readable rules.toml."""
+"""Pluggable style guides: guide prose plus a machine-readable rules pack, from any source."""
 
 from __future__ import annotations
 
-import tomllib
+import json
 from dataclasses import dataclass, field, replace
-from functools import lru_cache
 from pathlib import Path
 
-from .config import ConfigError, package_root
+from .config import ConfigError, package_root, read_toml
+from .sources import DEFAULT_SOURCE, GuideSpec, bundled_guides, fetch_files, find_pack, parse_spec
 
 SEVERITIES = ("error", "warning", "suggestion")
 DEFAULT_GUIDE = "signal"
@@ -54,12 +54,18 @@ class StyleGuide:
     id: str
     name: str
     version: str
-    directory: Path
-    document: Path
+    directory: Path | None
+    document: Path | None
     rules: tuple[Rule, ...]
     description: str = ""
     content_types: dict = field(default_factory=dict, hash=False, compare=False)
     origin: str = "default"
+    rules_file: Path | None = None
+    source: str = ""
+    pinned: bool = True
+    engine: str = "pakt"
+    vale_package: str = ""
+    vale_ref: str = ""
 
     @property
     def checkable(self) -> list[Rule]:
@@ -84,60 +90,83 @@ class StyleGuide:
 
     @property
     def label(self) -> str:
-        return f"{self.name} {self.version}"
+        return f"{self.name} {self.version}".strip()
+
+    @property
+    def has_prose(self) -> bool:
+        return self.document is not None and self.document.is_file()
 
     def rule(self, rule_id: str) -> Rule | None:
         return next((r for r in self.rules if r.id == rule_id), None)
 
     def text(self) -> str:
-        return self.document.read_text(encoding="utf-8")
+        return self.document.read_text(encoding="utf-8") if self.has_prose else ""
 
     def summary(self) -> dict:
         return {
             "id": self.id, "name": self.name, "version": self.version, "origin": self.origin,
-            "directory": str(self.directory), "document": str(self.document),
-            "rules_file": str(self.directory / "rules.toml"),
+            "source": self.source, "pinned": self.pinned, "engine": self.engine,
+            "document": str(self.document) if self.document else "",
+            "rules_file": str(self.rules_file) if self.rules_file else "",
             "rules": {"total": len(self.rules), "check": len(self.checkable), "judgment": len(self.judgment)},
         }
 
 
-def load_guide(directory: Path, origin: str = "path") -> StyleGuide:
+def load_pack(pack: Path, prose: Path | None = None, origin: str = "path", source: str = "", pinned: bool = True) -> StyleGuide:
+    """Load a rules pack. The prose comes from `prose`, or from the pack's [guide] document."""
     from .rules import CHECKS
     from .structure import STRUCTURE_CHECKS
 
-    directory = Path(directory).resolve()
-    rules_path = directory / "rules.toml"
-    if not rules_path.is_file():
-        raise ConfigError(f"style guide folder {directory} has no rules.toml")
-    with open(rules_path, "rb") as fh:
-        data = tomllib.load(fh)
+    pack = Path(pack).resolve()
+    data = read_toml(pack)
     meta = data.get("guide", {})
-    for key in ("id", "name", "document"):
+    for key in ("id", "name"):
         if not meta.get(key):
-            raise ConfigError(f"{rules_path}: [guide] needs '{key}'")
-    document = directory / meta["document"]
-    if not document.is_file():
-        raise ConfigError(f"{rules_path}: guide document {meta['document']!r} not found")
+            raise ConfigError(f"{pack}: [guide] needs '{key}'")
+    if prose is None and meta.get("document"):
+        prose = pack.parent / meta["document"]
+    if prose is not None and not Path(prose).is_file():
+        raise ConfigError(f"{pack}: guide document {str(prose)!r} not found")
 
     rules: list[Rule] = []
     for raw in data.get("rules", []):
-        rule = _parse_rule(raw, rules_path, CHECKS)
+        rule = _parse_rule(raw, pack, CHECKS)
         if any(r.id == rule.id for r in rules):
-            raise ConfigError(f"{rules_path}: duplicate rule id {rule.id!r}")
+            raise ConfigError(f"{pack}: duplicate rule id {rule.id!r}")
         rules.append(rule)
     if not rules:
-        raise ConfigError(f"{rules_path}: no rules defined")
-
-    content_types = {}
-    for ctype, table in data.get("content_types", {}).items():
-        reqs = [_parse_rule(raw, rules_path, STRUCTURE_CHECKS) for raw in table.get("requirements", [])]
-        content_types[ctype] = reqs
+        raise ConfigError(f"{pack}: no rules defined")
 
     return StyleGuide(
-        id=meta["id"], name=meta["name"], version=str(meta.get("version", "")), directory=directory,
-        document=document, rules=tuple(rules), description=meta.get("description", ""),
-        content_types=content_types, origin=origin,
+        id=meta["id"], name=meta["name"], version=str(meta.get("version", "")), directory=pack.parent,
+        document=Path(prose) if prose else None, rules=tuple(rules), description=meta.get("description", ""),
+        content_types=_content_types(data, pack, STRUCTURE_CHECKS), origin=origin, rules_file=pack,
+        source=source or str(pack.parent), pinned=pinned,
     )
+
+
+def _content_types(data: dict, source: Path, registry: dict) -> dict:
+    return {
+        ctype: [_parse_rule(raw, source, registry) for raw in table.get("requirements", [])]
+        for ctype, table in data.get("content_types", {}).items()
+    }
+
+
+def load_requirements(path: Path) -> dict:
+    """Read a requirements-only file: [content_types.<type>] tables, as in a rules pack."""
+    from .structure import STRUCTURE_CHECKS
+
+    if not path.is_file():
+        raise ConfigError(f"requirements file {path} not found")
+    return _content_types(read_toml(path), path, STRUCTURE_CHECKS)
+
+
+def load_guide(directory: Path, origin: str = "path") -> StyleGuide:
+    directory = Path(directory)
+    pack = find_pack(directory)
+    if pack is None:
+        raise ConfigError(f"style guide folder {directory} has no rules pack (rules.toml or <name>.rules.toml)")
+    return load_pack(pack, origin=origin)
 
 
 def _parse_rule(raw: dict, source: Path, registry: dict) -> Rule:
@@ -161,36 +190,62 @@ def _parse_rule(raw: dict, source: Path, registry: dict) -> Rule:
     )
 
 
-def bundled_guides(root: Path | None = None) -> dict[str, Path]:
-    base = (root or package_root()) / "styleguides"
-    return {p.parent.name: p.parent for p in sorted(base.glob("*/rules.toml"))}
+def resolve(spec: GuideSpec, origin: str = "", refresh: bool = False) -> StyleGuide:
+    """Turn a guide source into a loaded guide, fetching and caching remote files as needed."""
+    origin = origin or spec.label
+    if spec.kind == "vale":
+        guide = _vale_guide(spec, origin, refresh)
+    else:
+        pack, prose = fetch_files(spec, refresh)
+        guide = load_pack(pack, prose, origin, spec.label, spec.pinned)
+    if spec.requirements:
+        path = Path(spec.requirements).expanduser()
+        if not path.is_absolute() and spec.base:
+            path = Path(spec.base) / path
+        guide = replace(guide, content_types={**guide.content_types, **load_requirements(path)})
+    return guide
 
 
-def guide_dir(name_or_path: str, root: Path | None = None, relative_to: Path | None = None) -> Path:
-    """Resolve a bundled guide name, or a folder path, to a guide directory."""
-    bundled = bundled_guides(root)
-    if name_or_path in bundled:
-        return bundled[name_or_path]
-    candidate = Path(name_or_path).expanduser()
-    if not candidate.is_absolute() and relative_to is not None:
-        candidate = relative_to / candidate
-    if (candidate / "rules.toml").is_file():
-        return candidate
-    raise ConfigError(
-        f"unknown style guide {name_or_path!r}. Use a bundled name ({', '.join(bundled) or 'none'}) "
-        "or a folder that holds guide.md and rules.toml."
+def _vale_guide(spec: GuideSpec, origin: str, refresh: bool) -> StyleGuide:
+    from .sources import _fetch_url
+
+    prose = None
+    if spec.prose.startswith(("https://", "http://")):
+        prose = _fetch_url(spec.prose, spec, refresh)
+    elif spec.prose:
+        prose = Path(spec.prose).expanduser()
+        if not prose.is_absolute() and spec.base:
+            prose = Path(spec.base) / prose
+        if not prose.is_file():
+            raise ConfigError(f"guide prose {prose} not found")
+    return StyleGuide(
+        id=f"vale-{spec.target.lower()}", name=f"{spec.target} (Vale)", version=spec.ref or "latest",
+        directory=None, document=prose, rules=(), description=f"Vale package {spec.target}", origin=origin,
+        source=spec.label, pinned=spec.pinned, engine="vale", vale_package=spec.target, vale_ref=spec.ref,
     )
 
 
-@lru_cache(maxsize=8)
-def _load_cached(directory: str, origin: str) -> StyleGuide:
-    return load_guide(Path(directory), origin)
+_CACHE: dict[str, StyleGuide] = {}
+
+
+def get_guide(value, root: Path | None = None, relative_to: Path | None = None, origin: str = "") -> StyleGuide:
+    """Load a guide from a source string or a [styleguide] table, once per process."""
+    spec = parse_spec(value, relative_to, root)
+    key = json.dumps([spec.__dict__, origin], sort_keys=True, default=str)
+    if key not in _CACHE:
+        _CACHE[key] = resolve(spec, origin)
+    return _CACHE[key]
+
+
+def default_source(root: Path | None = None) -> dict:
+    """The [styleguide] table in config.toml, or Signal from its public repo when none is set."""
+    cfg = (root or package_root()) / "config.toml"
+    table = read_toml(cfg).get("styleguide", {}) if cfg.is_file() else {}
+    return table if (table.get("source") or table.get("name") or table.get("path")) else dict(DEFAULT_SOURCE)
 
 
 def default_guide() -> StyleGuide:
-    return _load_cached(str(guide_dir(DEFAULT_GUIDE)), "default")
+    return get_guide(default_source(), package_root(), package_root(), origin="default")
 
 
-def get_guide(name_or_path: str, root: Path | None = None, relative_to: Path | None = None, origin: str = "") -> StyleGuide:
-    directory = guide_dir(name_or_path, root, relative_to)
-    return _load_cached(str(directory.resolve()), origin or name_or_path)
+__all__ = ["Rule", "StyleGuide", "bundled_guides", "default_guide", "get_guide", "load_guide", "load_pack", "resolve"]

@@ -158,6 +158,8 @@ def deterministic_findings(doc: Document, guide: StyleGuide, ctype: ContentType)
             findings += _findings_from(results, rules_by_id, doc, "check", line=s.line)
     else:
         findings += _findings_from([apply_rule(r, doc.body) for r in checkable], rules_by_id, doc, "check")
+    if guide.engine == "vale":
+        findings += _vale_findings(doc, guide, ctype)
     structure_results = [apply_requirement(r, doc) for r in ctype.checkable]
     req_by_id = {r.id: r for r in ctype.checkable}
     findings += _findings_from(structure_results, req_by_id, doc, "structure")
@@ -169,10 +171,22 @@ def deterministic_findings(doc: Document, guide: StyleGuide, ctype: ContentType)
     return findings, structure_results
 
 
+def _vale_findings(doc: Document, guide: StyleGuide, ctype: ContentType) -> list[Finding]:
+    from . import vale
+
+    if ctype.id == "ui_microcopy":
+        doc.strings = doc.strings or parse_ui_strings(doc)
+        text = "\n\n".join(s.text for s in doc.strings) + "\n"
+        line_map = {2 * i + 1: s.line for i, s in enumerate(doc.strings)}
+        return vale.to_findings(vale.lint(guide, text, ".md"), text, line_map)
+    suffix = doc.path.suffix if doc.path is not None and doc.path.suffix in (".md", ".mdx", ".txt", ".rst") else ".md"
+    return vale.to_findings(vale.lint(guide, doc.raw, suffix), doc.raw)
+
+
 def style_score(findings: list[Finding]) -> int:
     per_rule: dict[str, float] = {}
     for f in findings:
-        if f.source in ("check", "model-style"):
+        if f.source in ("check", "vale", "model-style"):
             per_rule[f.rule] = min(PER_RULE_CAP, per_rule.get(f.rule, 0.0) + PENALTY[f.severity])
     return clamp(10 - sum(per_rule.values()))
 
@@ -206,12 +220,18 @@ def sort_findings(findings: list[Finding]) -> list[Finding]:
 
 # ------------------------------------------------------------ model layer
 
+NO_PROSE = (
+    "No guide prose is configured. Judge technical clarity, structure, and scannability on general editorial "
+    "standards, and treat the deterministic findings as the style evidence."
+)
+
+
 def build_review_prompt(template: str, guide: StyleGuide, ctype: ContentType) -> str:
     rules = "\n".join(f"- {r.id} ({r.severity}): {r.summary}" for r in guide.judgment_for(ctype))
     reqs = "\n".join(f"- {r.id} ({r.severity}): {r.summary}" for r in ctype.requirements) or "- none"
     return (
         template.replace("{{guide_name}}", guide.label)
-        .replace("{{guide_text}}", guide.text().strip())
+        .replace("{{guide_text}}", guide.text().strip() or NO_PROSE)
         .replace("{{judgment_rules}}", rules or "- none")
         .replace("{{content_type}}", ctype.name)
         .replace("{{requirements}}", reqs)
@@ -293,6 +313,8 @@ def review(
     scores["structure"] = structure_score(structure_results, {r.id: r for r in ctype.checkable})
     report = ReviewReport(path=doc.name, content_type=ctype.id, guide=guide.label, scores=scores, verdict="")
 
+    if not guide.has_prose:
+        report.notes.append("No guide prose is configured, so the judgment layer has no guide text to apply.")
     if client is None:
         report.notes.append(
             "Deterministic checks only. Judgment rules, technical clarity, and scannability need a model: "
