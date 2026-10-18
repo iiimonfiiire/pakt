@@ -12,8 +12,9 @@ from pathlib import Path
 from . import audit as audit_mod
 from . import gaps as gaps_mod
 from . import release_notes as rn
-from .config import PROJECT_FILE, ConfigError, Settings, _load_dotenv, find_root, load_settings, require_api_key, resolve_guide
+from .config import PROJECT_FILE, ConfigError, Settings, _load_dotenv, find_root, load_settings, model_client, resolve_guide
 from .document import load_document, parse_document
+from .providers import AllProvidersFailed, ProviderError, configure_logging
 from .review import load_template, review, verdict_for
 from .structure import detect_type, load_content_types, refine_type
 from .sources import bundled_guides
@@ -130,10 +131,7 @@ def cmd_lint(args) -> int:
 
 
 def _client(s: Settings, cache_only: bool = False):
-    from .llm import AnthropicClient, CachedClient, CacheOnlyClient
-
-    inner = CacheOnlyClient() if cache_only else AnthropicClient(require_api_key())
-    return CachedClient(inner, s.root / "evals" / ".cache", "reviews")
+    return model_client(s.providers, "review", s.root / "evals" / ".cache", "reviews", cache_only=cache_only)
 
 
 def cmd_review(args) -> int:
@@ -325,7 +323,7 @@ def build_parser() -> argparse.ArgumentParser:
     r = add("review", cmd_review, "score one file against the guide and its content type")
     r.add_argument("file")
     r.add_argument("--type", help="a content type ID from `pakt types` (default: detect)")
-    r.add_argument("--model", action="store_true", help="add model judgment (needs ANTHROPIC_API_KEY)")
+    r.add_argument("--model", action="store_true", help="add model judgment (needs GEMINI_API_KEY, GROQ_API_KEY, or ANTHROPIC_API_KEY)")
     r.add_argument("--cache-only", action="store_true", help="with --model, use cached responses only")
     r.add_argument("--glossary", help="also check terminology against this glossary")
     r.add_argument("--json", action="store_true")
@@ -385,9 +383,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    configure_logging()
     try:
         return args.fn(args)
-    except (ConfigError, ValueError, FileNotFoundError) as exc:
+    except (ConfigError, ValueError, FileNotFoundError, AllProvidersFailed, ProviderError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

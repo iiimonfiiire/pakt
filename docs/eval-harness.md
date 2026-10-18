@@ -129,7 +129,7 @@ The harness counts a rewrite as a meaning pass when its meaning score is 4 or hi
 
 LLM judges have known biases. The harness does not remove them. It reduces them and makes them visible.
 
-- **Self-preference** – A model tends to rate its own writing higher. The judge is a different, larger model than the generator. Both come from the same vendor, so some shared taste remains.
+- **Self-preference** – A model tends to rate its own writing higher. With Anthropic, the judge is a different, larger model than the generator, but both come from the same vendor. The Gemini and Groq defaults use one model for both roles, so self-preference is stronger there. To reduce it, set a different judge model, or put another provider first with `PAKT_PROVIDERS` for a `judge-check` run.
 - **Length bias** – Judges often reward longer answers. The rubric tells the judge not to reward length, and the readability anchors reward short, direct text.
 - **Label bias** – A judge that knows which prompt produced an output may favor one. The judge sees only the source and the rewrite, never the variant name.
 - **Drift and noise** – The judge runs at temperature 0 with a fixed rubric file. The report records the rubric hash, so a changed rubric is visible.
@@ -141,13 +141,13 @@ Eight pairs are a smoke test, not a validation. A judge that fails them does not
 
 ## Caching, cost, and latency
 
-Every API response gets saved under `evals/.cache/`. The cache key is a hash of the full request: model, system prompt, user message, token limit, and temperature.
+Every API response gets saved under `evals/.cache/`, in one folder per provider. The cache key is a hash of the full request: provider, model, system prompt, user message, token limit, and temperature. For the provider order and fallback, see [the providers guide](providers.md).
 
 - **Reruns are free** – An identical request reads from disk and costs nothing.
 - **Edits are safe** – Change one word in a prompt, and only that prompt's requests miss the cache.
 - **Rescoring is free too** – Changing a rule check needs no new model calls. Run `pakt-eval run --cache-only` to rescore cached outputs without an API key.
 
-The report shows cost as first incurred, so a fully cached rerun still reports what the original calls cost. Latency is the time each live call took, saved with the cached response.
+The report shows cost as first incurred, so a fully cached rerun still reports what the original calls cost. Only the Claude models have prices in `config.toml`, so a Gemini or Groq run shows its cost as n/a. Latency is the time each live call took, saved with the cached response.
 
 Before a paid run, `pakt-eval run --dry-run` prints the number of calls and an estimated cost. The estimate assumes about four characters per token. For the full run of four variants and 25 items, the estimate is about 0.57 USD.
 
@@ -161,7 +161,7 @@ Each run writes three files to `evals/results/<run-id>/`:
 
 The report has four parts.
 
-1. **Run details** – Models, prompt hashes, and the item count. Use them to tell runs apart.
+1. **Run details** – The provider order, the model behind each answer, the prompt hashes, and the item count. Use them to tell runs apart. A run that fell back partway lists more than one model.
 2. **Headline** – One column per variant. The rows cover rule pass rates, the key-term pass rate, and judge scores. Further rows show format compliance, latency, tokens, and cost.
 3. **Pass rate per rule** – One row per rule. The first column is the source baseline: how often the untouched messy snippets pass. Each cell also shows how many items the rule applied to.
 4. **Worst failures** – The five worst variant and item pairs, with the source, the output, and the reasons.

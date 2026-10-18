@@ -29,11 +29,35 @@ from pakt_evals.config import load_config  # noqa: E402
 from pakt_evals.llm import Completion  # noqa: E402
 
 
+PROVIDER_ENV = (
+    "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "GROQ_API_KEY", "PAKT_PROVIDERS", "PAKT_LOG_LEVEL",
+    "PAKT_GENERATOR_MODEL", "PAKT_JUDGE_MODEL", "PAKT_REVIEW_MODEL",
+)
+
+
+@pytest.fixture(autouse=True)
+def no_provider_env(monkeypatch):
+    """Every test starts with no API keys and no provider or model overrides from the shell."""
+    for name in PROVIDER_ENV:
+        monkeypatch.delenv(name, raising=False)
+    for name in list(os.environ):
+        if name.startswith("PAKT_") and name.endswith("_MODEL"):
+            monkeypatch.delenv(name, raising=False)
+
+
 @pytest.fixture
 def cfg(monkeypatch):
     monkeypatch.setattr("pakt_evals.config._load_dotenv", lambda root: None)
     monkeypatch.delenv("PAKT_GENERATOR_MODEL", raising=False)
     monkeypatch.delenv("PAKT_JUDGE_MODEL", raising=False)
+    return load_config(REPO_ROOT)
+
+
+@pytest.fixture
+def anthropic_cfg(monkeypatch):
+    """The config with anthropic first, for tests of the Claude price table."""
+    monkeypatch.setattr("pakt_evals.config._load_dotenv", lambda root: None)
+    monkeypatch.setenv("PAKT_PROVIDERS", "anthropic")
     return load_config(REPO_ROOT)
 
 

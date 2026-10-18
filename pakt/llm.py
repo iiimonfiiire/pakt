@@ -21,6 +21,7 @@ class Completion:
     output_tokens: int = 0
     latency_ms: float = 0.0
     cached: bool = False
+    provider: str = ""
 
 
 class LLMClient(Protocol):
@@ -30,10 +31,15 @@ class LLMClient(Protocol):
 
 
 class AnthropicClient:
-    def __init__(self, api_key: str, max_retries: int = 4):
+    provider = "anthropic"
+
+    def __init__(self, api_key: str, max_retries: int = 4, timeout: float | None = None):
         import anthropic
 
-        self._client = anthropic.Anthropic(api_key=api_key, max_retries=max_retries)
+        kwargs = {"api_key": api_key, "max_retries": max_retries}
+        if timeout is not None:
+            kwargs["timeout"] = timeout
+        self._client = anthropic.Anthropic(**kwargs)
 
     def complete(self, *, model, system, user, max_tokens, temperature):
         kwargs = dict(
@@ -54,6 +60,7 @@ class AnthropicClient:
             input_tokens=response.usage.input_tokens,
             output_tokens=response.usage.output_tokens,
             latency_ms=round(latency, 1),
+            provider=self.provider,
         )
 
 
@@ -74,25 +81,46 @@ def cache_key(**request) -> str:
 
 
 class CachedClient:
-    """Cache keyed on the full request, so any prompt or model change is a new entry."""
+    """Cache keyed on the full request, so any prompt or model change is a new entry.
 
-    def __init__(self, inner: LLMClient, cache_dir: Path, namespace: str):
+    The provider is part of both the folder and the key, so answers from different providers never mix.
+    It defaults to the inner client's `provider` attribute.
+    """
+
+    def __init__(self, inner: LLMClient, cache_dir: Path, namespace: str, provider: str | None = None):
         self.inner = inner
-        self.dir = cache_dir / namespace
+        self.provider = provider if provider is not None else getattr(inner, "provider", "")
+        self.dir = cache_dir / namespace / self.provider if self.provider else cache_dir / namespace
 
     def _path(self, key: str) -> Path:
         return self.dir / key[:2] / f"{key}.json"
 
-    def complete(self, *, model, system, user, max_tokens, temperature):
-        key = cache_key(model=model, system=system, user=user, max_tokens=max_tokens, temperature=temperature)
+    def _key(self, **request) -> str:
+        if self.provider:
+            request["provider"] = self.provider
+        return cache_key(**request)
+
+    def lookup(self, *, model, system, user, max_tokens, temperature) -> Completion | None:
+        """Return the cached response for this request, or None. Never calls the inner client."""
+        key = self._key(model=model, system=system, user=user, max_tokens=max_tokens, temperature=temperature)
         path = self._path(key)
-        if path.is_file():
-            data = json.loads(path.read_text(encoding="utf-8"))
-            data["cached"] = True
-            return Completion(**data)
+        if not path.is_file():
+            return None
+        data = json.loads(path.read_text(encoding="utf-8"))
+        data["cached"] = True
+        data.setdefault("provider", self.provider)
+        return Completion(**data)
+
+    def complete(self, *, model, system, user, max_tokens, temperature):
+        hit = self.lookup(model=model, system=system, user=user, max_tokens=max_tokens, temperature=temperature)
+        if hit is not None:
+            return hit
         result = self.inner.complete(
             model=model, system=system, user=user, max_tokens=max_tokens, temperature=temperature
         )
+        if not result.provider:
+            result.provider = self.provider
+        path = self._path(self._key(model=model, system=system, user=user, max_tokens=max_tokens, temperature=temperature))
         path.parent.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=path.parent, suffix=".tmp")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:

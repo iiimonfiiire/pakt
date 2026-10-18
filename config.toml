@@ -1,4 +1,4 @@
-# PAKT configuration. Environment variables in .env override the models.
+# PAKT configuration. Environment variables in .env override the provider order and the models.
 # A project can pick its own style guide in a .pakt.toml file. See docs/style-guides.md.
 
 # The default style guide: Signal, fetched from its public repo and pinned to a release tag.
@@ -7,15 +7,41 @@
 source = "github:iiimonfiiire/signal-style-guide@v2026.10.06"
 rules = "signal.rules.toml"
 
+# Model providers, tried in order. A provider without an API key in .env is skipped.
+# A rate limit, server error, or timeout falls back to the next provider after that provider's own retries.
+# Any other error, such as a bad key or an unknown model, stops the run.
+# PAKT_PROVIDERS overrides the order, for example PAKT_PROVIDERS=groq,anthropic.
+# PAKT_<PROVIDER>_<ROLE>_MODEL overrides one model, for example PAKT_GEMINI_JUDGE_MODEL.
+# Model IDs change often. Check them against each provider's current model list.
+[providers]
+order = ["gemini", "groq", "anthropic"]
+max_retries = 2
+timeout = 120
+
+[providers.gemini]
+generator = "gemini-3.6-flash"
+judge = "gemini-3.6-flash"
+review = "gemini-3.6-flash"
+# Optional. Caps the thinking tokens, which count against max_tokens on thinking models.
+# thinking_budget = 0
+
+[providers.groq]
+generator = "openai/gpt-oss-120b"
+judge = "openai/gpt-oss-120b"
+review = "openai/gpt-oss-120b"
+# Optional. low, medium, or high. Reasoning tokens count against max_tokens.
+# reasoning_effort = "low"
+
+# PAKT_GENERATOR_MODEL, PAKT_JUDGE_MODEL, and PAKT_REVIEW_MODEL still override these, as before.
+[providers.anthropic]
+generator = "claude-haiku-4-5-20251001"
+judge = "claude-sonnet-5-5"
+review = "claude-sonnet-5-5"
+
 [review]
-model = "claude-sonnet-5-5"
 max_tokens = 2000
 temperature = 0.0
 prompt = "prompts/review/v1.md"
-
-[models]
-generator = "claude-haiku-4-5-20251001"
-judge = "claude-sonnet-5-5"
 
 [generation]
 max_tokens = 1500
@@ -29,6 +55,8 @@ prompt = "prompts/judge/v1.md"
 pass_threshold = 4
 
 # USD per million tokens. Verify against current published pricing before quoting costs.
+# A model without an entry reports its cost as n/a. Gemini and Groq have no entry: their free tiers cost nothing,
+# and their paid prices change often.
 [pricing."claude-haiku-4-5-20251001"]
 input = 1.00
 output = 5.00
