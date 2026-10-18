@@ -79,11 +79,13 @@ class ItemResult:
     rules: list[dict] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
     judge: dict | None = None
+    gen_provider: str = ""
     gen_model: str = ""
     gen_input_tokens: int = 0
     gen_output_tokens: int = 0
     gen_latency_ms: float = 0.0
     gen_cached: bool = False
+    judge_provider: str = ""
     judge_model: str = ""
     judge_input_tokens: int = 0
     judge_output_tokens: int = 0
@@ -106,6 +108,14 @@ class ItemResult:
 def score_text(text: str, item: TestItem, guide: StyleGuide) -> tuple[list[dict], dict]:
     results = run_rules(text, item.must_keep, guide, content_type_for(guide, item.category))
     return [asdict(r) | {"violations": list(r.violations)} for r in results], sentence_stats(text)
+
+
+def _price(cfg: Config, completion, provider: str, model: str) -> float | None:
+    """Price by the model that answered. Fall back to the configured ID when the API reports a dated snapshot."""
+    tokens = (completion.input_tokens, completion.output_tokens)
+    if completion.model in cfg.pricing or (completion.provider and completion.provider != provider):
+        return cfg.price(completion.model, *tokens)
+    return cfg.price(model, *tokens)
 
 
 def _add_cost(total: float | None, part: float | None) -> float | None:
@@ -133,12 +143,13 @@ def evaluate_one(
         result.error = f"generation failed: {type(exc).__name__}: {exc}"
         return result
 
+    result.gen_provider = completion.provider
     result.gen_model = completion.model
     result.gen_input_tokens = completion.input_tokens
     result.gen_output_tokens = completion.output_tokens
     result.gen_latency_ms = completion.latency_ms
     result.gen_cached = completion.cached
-    result.cost_usd = cfg.price(cfg.generator_model, completion.input_tokens, completion.output_tokens)
+    result.cost_usd = _price(cfg, completion, cfg.generator_provider, cfg.generator_model)
     result.output, result.format_ok = extract_rewrite(completion.text)
     result.rules, result.stats = score_text(result.output, item, cfg.guide)
 
@@ -158,11 +169,12 @@ def evaluate_one(
         result.judge = Judgment(error=f"judge failed: {type(exc).__name__}: {exc}").to_dict()
         return result
     result.judge = judgment.to_dict()
+    result.judge_provider = jc.provider
     result.judge_model = jc.model
     result.judge_input_tokens = jc.input_tokens
     result.judge_output_tokens = jc.output_tokens
     result.judge_cached = jc.cached
-    result.cost_usd = _add_cost(result.cost_usd, cfg.price(cfg.judge_model, jc.input_tokens, jc.output_tokens))
+    result.cost_usd = _add_cost(result.cost_usd, _price(cfg, jc, cfg.judge_provider, cfg.judge_model))
     return result
 
 

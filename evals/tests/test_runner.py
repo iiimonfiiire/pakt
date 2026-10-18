@@ -41,7 +41,8 @@ def _respond(system, user):
     return JUDGE_JSON if "<candidate>" in user else "<rewrite>Authenticate every request. Invalid tokens get `401`.</rewrite>"
 
 
-def test_run_eval_end_to_end_with_fake_client(cfg, fake_client_factory):
+def test_run_eval_end_to_end_with_fake_client(anthropic_cfg, fake_client_factory):
+    cfg = anthropic_cfg
     variants = list(discover_variants(cfg.prompts_dir).values())[:2]
     client = fake_client_factory(_respond)
     results = run_eval(cfg, variants, [ITEM], client, client, rubric="RUBRIC")
@@ -97,7 +98,8 @@ def test_score_canned_outputs(cfg, tmp_path):
     assert not r.key_terms_ok
 
 
-def test_estimate_cost_is_positive_and_counts_calls(cfg):
+def test_estimate_cost_is_positive_and_counts_calls(anthropic_cfg):
+    cfg = anthropic_cfg
     variants = list(discover_variants(cfg.prompts_dir).values())
     est = estimate_cost(cfg, variants, [ITEM, ITEM], rubric="R" * 400)
     assert est["generation_calls"] == est["judge_calls"] == 8

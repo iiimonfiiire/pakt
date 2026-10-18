@@ -23,7 +23,9 @@ def test_missing_key_message(monkeypatch, value):
 
 def test_run_without_key_fails_cleanly(capsys):
     assert cli.main(["run", "--limit", "1", "--variants", "v1"]) == 2
-    assert "set ANTHROPIC_API_KEY in .env" in capsys.readouterr().err
+    err = capsys.readouterr().err
+    assert "no API key found for any provider" in err
+    assert all(k in err for k in ("GEMINI_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY"))
 
 
 def test_dry_run_needs_no_key(capsys):

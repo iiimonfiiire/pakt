@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import os
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from pakt.config import PLACEHOLDER_KEYS, ConfigError, _load_dotenv, require_api_key  # noqa: F401
+from pakt.config import PLACEHOLDER_KEYS, ConfigError, _load_dotenv, model_client, provider_settings, require_api_key  # noqa: F401
 from pakt.config import find_root as _find_root
+from pakt.providers import ProviderSettings
 from pakt.styleguide import StyleGuide, default_guide, default_source, get_guide
 
 
@@ -35,6 +35,10 @@ class Config:
     review_model: str = "claude-sonnet-5-5"
     review_max_tokens: int = 2000
     review_prompt: Path = Path("prompts/review/v1.md")
+    providers: ProviderSettings = field(default_factory=ProviderSettings)
+    generator_provider: str = "anthropic"
+    judge_provider: str = "anthropic"
+    review_provider: str = "anthropic"
 
     def price(self, model: str, input_tokens: int, output_tokens: int) -> float | None:
         if model not in self.pricing:
@@ -57,7 +61,10 @@ def load_config(root: Path | None = None) -> Config:
     with open(root / "config.toml", "rb") as fh:
         data = tomllib.load(fh)
 
-    models = data.get("models", {})
+    providers = provider_settings(data)
+    (gen_provider, gen_model), (judge_provider, judge_model), (review_provider, review_model) = (
+        providers.primary(role) for role in ("generator", "judge", "review")
+    )
     gen = data.get("generation", {})
     judge = data.get("judge", {})
     review = data.get("review", {})
@@ -72,8 +79,8 @@ def load_config(root: Path | None = None) -> Config:
 
     return Config(
         root=root,
-        generator_model=os.environ.get("PAKT_GENERATOR_MODEL") or models["generator"],
-        judge_model=os.environ.get("PAKT_JUDGE_MODEL") or models["judge"],
+        generator_model=gen_model,
+        judge_model=judge_model,
         gen_max_tokens=int(gen.get("max_tokens", 1500)),
         gen_temperature=_optional_float(gen.get("temperature", 0.0)),
         concurrency=max(1, int(gen.get("concurrency", 4))),
@@ -89,7 +96,11 @@ def load_config(root: Path | None = None) -> Config:
         prompts_dir=path("prompts_dir", "prompts"),
         cache_dir=path("cache_dir", "evals/.cache"),
         results_dir=path("results_dir", "evals/results"),
-        review_model=os.environ.get("PAKT_REVIEW_MODEL") or review.get("model", "claude-sonnet-5-5"),
+        review_model=review_model,
         review_max_tokens=int(review.get("max_tokens", 2000)),
         review_prompt=root / review.get("prompt", "prompts/review/v1.md"),
+        providers=providers,
+        generator_provider=gen_provider,
+        judge_provider=judge_provider,
+        review_provider=review_provider,
     )

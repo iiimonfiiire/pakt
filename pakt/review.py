@@ -59,6 +59,8 @@ class ReviewReport:
     summary: str = ""
     mode: str = "checks"
     notes: list[str] = field(default_factory=list)
+    provider: str = ""
+    model: str = ""
 
     @property
     def scored(self) -> dict[str, int]:
@@ -83,6 +85,7 @@ class ReviewReport:
             "path": self.path, "content_type": self.content_type, "guide": self.guide, "mode": self.mode,
             "scores": self.scores, "total": self.total, "max_total": self.max_total, "verdict": self.verdict,
             "summary": self.summary, "findings": [f.to_dict() for f in self.findings], "notes": self.notes,
+            "provider": self.provider, "model": self.model,
         }
 
     def to_markdown(self) -> str:
@@ -94,6 +97,8 @@ class ReviewReport:
             f"- **Style guide** – {self.guide}",
             f"- **Mode** – {self.mode}",
         ]
+        if self.model:
+            lines.append(f"- **Model** – {self.model} ({self.provider or 'unknown provider'})")
         if self.summary:
             lines += ["", self.summary]
         lines += ["", "## Scores", "", "| Criterion | Score |", "|---|---|"]
@@ -327,6 +332,7 @@ def review(
             model=model, system=build_review_prompt(template, guide, ctype),
             user=build_review_message(doc, ctype, findings), max_tokens=max_tokens, temperature=temperature,
         )
+        report.provider, report.model = completion.provider, completion.model
         parsed = parse_model_review(completion.text, doc, judgment)
         if parsed.error:
             report.notes.append(f"Model review problem: {parsed.error}")

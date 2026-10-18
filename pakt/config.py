@@ -10,10 +10,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from .providers import PLACEHOLDER_KEYS, NoProviderKey, ProviderSettings, build_client, load_provider_settings
+
 if TYPE_CHECKING:
+    from .providers import FallbackClient
     from .styleguide import StyleGuide
 
-PLACEHOLDER_KEYS = {"", "your-api-key-here"}
 PROJECT_FILE = ".pakt.toml"
 
 
@@ -52,7 +54,25 @@ def _load_dotenv(root: Path) -> None:
     load_dotenv(env_path, override=False)
 
 
+def provider_settings(data: dict) -> ProviderSettings:
+    try:
+        return load_provider_settings(data)
+    except ValueError as exc:
+        raise ConfigError(str(exc)) from exc
+
+
+def model_client(
+    providers: ProviderSettings, role: str, cache_dir: Path, namespace: str, cache_only: bool = False
+) -> "FallbackClient":
+    """The cached fallback chain for one role (generator, judge, or review)."""
+    try:
+        return build_client(providers, role, cache_dir, namespace, cache_only=cache_only)
+    except NoProviderKey as exc:
+        raise ConfigError(str(exc)) from exc
+
+
 def require_api_key() -> str:
+    """The Anthropic key alone. Kept for callers that use AnthropicClient directly."""
     key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
     if key in PLACEHOLDER_KEYS:
         raise ConfigError(
@@ -85,6 +105,8 @@ class Settings:
     exclude: list[str] = field(default_factory=list)
     type_map: dict[str, str] = field(default_factory=dict)
     review_model: str = "claude-sonnet-5-5"
+    review_provider: str = "anthropic"
+    providers: ProviderSettings = field(default_factory=ProviderSettings)
     review_max_tokens: int = 2000
     review_temperature: float | None = 0.0
     review_prompt: Path = Path("prompts/review/v1.md")
@@ -125,10 +147,14 @@ def load_settings(start: Path | None = None, guide_override: str | None = None, 
     _load_dotenv(root)
     data = read_toml(root / "config.toml") if (root / "config.toml").is_file() else {}
     review = data.get("review", {})
+    providers = provider_settings(data)
+    review_provider, review_model = providers.primary("review")
     settings = Settings(
         root=root,
         guide=resolve_guide(root, start, guide_override),
-        review_model=os.environ.get("PAKT_REVIEW_MODEL") or review.get("model", "claude-sonnet-5-5"),
+        review_model=review_model,
+        review_provider=review_provider,
+        providers=providers,
         review_max_tokens=int(review.get("max_tokens", 2000)),
         review_temperature=None if review.get("temperature", 0.0) in (None, "") else float(review.get("temperature", 0.0)),
         review_prompt=root / review.get("prompt", "prompts/review/v1.md"),

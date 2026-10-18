@@ -5,16 +5,17 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pakt.llm import AnthropicClient, CachedClient, CacheOnlyClient
+from pakt.providers import AllProvidersFailed, ProviderError, configure_logging
 from pakt.review import load_template
 from pakt.rules import run_rules, strip_front_matter
 from pakt.structure import load_content_types
 
 from . import review_eval
-from .config import Config, ConfigError, load_config, require_api_key
+from .config import Config, ConfigError, load_config, model_client
 from .judge import judge
 from .prompts import discover_variants, load_prompt
 from .report import baseline, render_markdown, summarize, worst_failures, write_run
@@ -40,12 +41,18 @@ def _select_items(cfg: Config, ids: str | None, limit: int | None):
     return items[:limit] if limit else items
 
 
-def _clients(cfg: Config, cache_only: bool):
-    inner = CacheOnlyClient() if cache_only else AnthropicClient(require_api_key())
-    return (
-        CachedClient(inner, cfg.cache_dir, "generations"),
-        CachedClient(inner, cfg.cache_dir, "judgments"),
-    )
+def _clients(cfg: Config, cache_only: bool, judge_only: bool = False):
+    gen = None if judge_only else model_client(cfg.providers, "generator", cfg.cache_dir, "generations", cache_only)
+    return gen, model_client(cfg.providers, "judge", cfg.cache_dir, "judgments", cache_only)
+
+
+def _served(pairs) -> str:
+    """Summarize which provider and model answered, e.g. 'gemini/gemini-3.6-flash x24, groq/openai/gpt-oss-120b x1'."""
+    return _tally(Counter(f"{p or 'unknown'}/{m}" for p, m in pairs if m))
+
+
+def _tally(counts: Counter) -> str:
+    return ", ".join(f"{k} x{n}" for k, n in counts.most_common()) or "none"
 
 
 def _run_id() -> str:
@@ -65,8 +72,8 @@ def cmd_run(cfg: Config, args) -> int:
     estimate = estimate_cost(cfg, variants, items, rubric)
 
     print(f"Plan: {len(variants)} variant(s) x {len(items)} item(s)")
-    print(f"  generator: {cfg.generator_model}")
-    print(f"  judge:     {'disabled' if rubric is None else cfg.judge_model}")
+    print(f"  generator: {cfg.providers.describe('generator')}")
+    print(f"  judge:     {'disabled' if rubric is None else cfg.providers.describe('judge')}")
     print(f"  estimate:  {json.dumps(estimate)}")
     print("  (estimate ignores the cache; cached requests cost nothing)")
     if args.dry_run:
@@ -79,7 +86,7 @@ def cmd_run(cfg: Config, args) -> int:
     def progress(res) -> None:
         nonlocal done
         done += 1
-        flag = "cache" if res.gen_cached else "live"
+        flag = ("cache" if res.gen_cached else "live") + (f", {res.gen_provider}" if res.gen_provider else "")
         status = "ERROR " + res.error if res.error else f"{len(res.failed_style_rules)} rule fail(s)"
         print(f"  [{done}/{len(variants) * len(items)}] {res.variant} {res.item_id} ({flag}): {status}", flush=True)
 
@@ -89,8 +96,9 @@ def cmd_run(cfg: Config, args) -> int:
     run_id = args.run_id or _run_id()
     meta = {
         "run_id": run_id,
-        "generator": cfg.generator_model,
-        "judge": "disabled" if rubric is None else cfg.judge_model,
+        "generator": _served((r.gen_provider, r.gen_model) for r in results),
+        "judge": "disabled" if rubric is None else _served((r.judge_provider, r.judge_model) for r in results),
+        "provider order": f"{', '.join(cfg.providers.order)} (from {cfg.providers.order_origin})",
         "variants": ", ".join(f"{v.id} [{v.sha}]" for v in variants),
         "items": str(len(items)),
         "judge prompt": "disabled" if rubric is None else f"{cfg.judge_prompt.name} [{load_prompt(cfg.judge_prompt).sha}]",
@@ -142,11 +150,11 @@ def cmd_judge_check(cfg: Config, args) -> int:
     """Compare judge scores with hand labels on the spot-check set."""
     rubric_file = load_prompt(cfg.judge_prompt)
     rows = [json.loads(l) for l in cfg.spot_check.read_text(encoding="utf-8").splitlines() if l.strip()]
-    print(f"Spot check: {len(rows)} hand-labeled pair(s), judge {cfg.judge_model}")
+    print(f"Spot check: {len(rows)} hand-labeled pair(s), judge {cfg.providers.describe('judge')}")
     if args.dry_run:
         print("Dry run: no API calls made.")
         return 0
-    _, judge_client = _clients(cfg, args.cache_only)
+    _, judge_client = _clients(cfg, args.cache_only, judge_only=True)
     exact = within_one = n = 0
     for row in rows:
         judgment, _ = judge(
@@ -163,6 +171,7 @@ def cmd_judge_check(cfg: Config, args) -> int:
             within_one += abs(human - model) <= 1
             mark = "" if abs(human - model) <= 1 else "  <-- disagreement"
             print(f"  {row['id']} {dim}: human {human}, judge {model}{mark}")
+    print(f"Judge served by: {_tally(judge_client.served)}")
     if n:
         print(f"Exact agreement: {exact}/{n} ({exact / n:.0%}); within one point: {within_one}/{n} ({within_one / n:.0%})")
     return 0
@@ -179,6 +188,7 @@ def cmd_review_eval(cfg: Config, args) -> int:
         wanted = {i.strip() for i in args.ids.split(",")}
         items = [i for i in items if i.id in wanted]
     errors: list[str] = []
+    served = ""
     if args.predictions:
         mode = f"canned predictions from {Path(args.predictions).name} (no model calls)"
         predictions = review_eval.load_predictions(Path(args.predictions))
@@ -186,26 +196,27 @@ def cmd_review_eval(cfg: Config, args) -> int:
         mode = "deterministic checks only (no model calls)"
         predictions, errors = review_eval.run_predictions(items, cfg.guide, types)
     else:
-        mode = f"checks plus model review ({cfg.review_model})"
-        print(f"Plan: {len(items)} review call(s) with {cfg.review_model}")
+        mode = "checks plus model review"
+        print(f"Plan: {len(items)} review call(s) with {cfg.providers.describe('review')}")
         print("  (cached requests cost nothing)")
         if args.dry_run:
             print("Dry run: no API calls made.")
             return 0
-        inner = CacheOnlyClient() if args.cache_only else AnthropicClient(require_api_key())
-        client = CachedClient(inner, cfg.cache_dir, "reviews")
+        client = model_client(cfg.providers, "review", cfg.cache_dir, "reviews", args.cache_only)
         predictions, errors = review_eval.run_predictions(
             items, cfg.guide, types, client,
             progress=lambda item_id, n: print(f"  [{n}/{len(items)}] {item_id}", flush=True),
             model=cfg.review_model, template=load_template(cfg.review_prompt),
             max_tokens=cfg.review_max_tokens, temperature=0.0,
         )
+        served = _tally(client.served)
     metrics = review_eval.score(items, predictions, cfg.guide, types)
     metrics["errors"] = errors
     run_id = args.run_id or f"review-{args.mode if not args.predictions else 'canned'}-{_run_id()}"
     meta = {
         "run_id": run_id,
         "mode": mode,
+        **({"review model": served, "provider order": f"{', '.join(cfg.providers.order)} (from {cfg.providers.order_origin})"} if served else {}),
         "style guide": cfg.guide.label,
         "review prompt": f"{cfg.review_prompt.name} [{load_prompt(cfg.review_prompt).sha}]",
         "items": str(len(items)),
@@ -277,10 +288,11 @@ COMMANDS = {
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    configure_logging(default="WARNING")
     try:
         cfg = load_config()
         return COMMANDS[args.command](cfg, args)
-    except ConfigError as exc:
+    except (ConfigError, AllProvidersFailed, ProviderError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 

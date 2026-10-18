@@ -29,7 +29,7 @@ Every reviewer returns the same report: four scores from 1 to 10, a verdict, and
 Each review has two layers:
 
 - **Deterministic checks** – Regex and structure checks that run offline in milliseconds. Examples include sentence length, contractions, heading case, and a release note's sections.
-- **Judgment** – Rules that a regex cannot judge, such as one term per concept. Claude applies them inside the skills, or through `pakt review --model`.
+- **Judgment** – Rules that a regex cannot judge, such as one term per concept. Claude applies them inside the skills. Outside Claude Code, `pakt review --model` sends them to a model from Gemini, Groq, or Anthropic.
 
 The rules file of the active guide decides which rules exist and which layer runs each one. It also sets every threshold for each content type.
 
@@ -61,6 +61,19 @@ You need Python 3.11 or later and Claude Code.
    The tests serve a fixture copy of the pinned Signal rules pack from `evals/tests/fixtures/signal/`. To check that the fixture still matches the pin, run `PAKT_NETWORK_TESTS=1 pytest`.
 
 To use the CLI outside the clone, set `PAKT_ROOT` to the clone's path.
+
+### Model providers
+
+The deterministic checks need no key. The model layer needs one key in `.env`, from any of three providers:
+
+1. Copy `.env.example` to `.env`, then run `chmod 600 .env`.
+2. Set `GEMINI_API_KEY`, `GROQ_API_KEY`, `ANTHROPIC_API_KEY`, or any mix of them.
+
+PAKT tries Gemini first, then Groq, then Anthropic, and skips a provider without a key. A free Google AI Studio key and a free Groq key are enough to run every model command.
+
+When a provider hits a rate limit, a server error, or a timeout, PAKT falls back to the next one. A bad key or an unknown model stops the run instead. Every report names the provider and the model that answered. For the order, the models, and the cache, see [the providers guide](docs/providers.md).
+
+> **Warning:** Google may use inputs to the free Gemini tier to improve its models. Do not send confidential documents, such as internal docs from an employer, through a free-tier key.
 
 ## Quickstart
 
@@ -181,11 +194,11 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 
 ## Configuration
 
-- **`config.toml`** – The default guide source and pin, models, token limits, prices, and paths.
+- **`config.toml`** – The default guide source and pin, the provider order, the models for each provider, token limits, prices, and paths.
 - **`.pakt.toml`** – Per project: the guide source, the glossary, file patterns, and content-type paths.
-- **`.env`** – The API key and model overrides. Copy `.env.example`, then run `chmod 600 .env`. Git ignores the file.
+- **`.env`** – The API keys, the provider order override, and model overrides. Copy `.env.example`, then run `chmod 600 .env`. Git ignores the file.
 
-> **Note:** The prices in `config.toml` serve cost estimates only. Check them against current published pricing before you quote a cost.
+> **Note:** The prices in `config.toml` serve cost estimates only, and cover the Claude models only. Check them against current published pricing before you quote a cost.
 
 ## Repository layout
 
@@ -213,4 +226,5 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 - **Default pin** – The pin points at a Signal commit that adds the rules pack. Until that commit is public, fetching the default fails. Set a local Signal folder as the source meanwhile.
 - **Results** – No real model run exists yet, so `evals/results/` holds no reports. The deterministic layer finds every check-kind label in the reviewer sets. The judgment layer still needs a measured run.
 - **Post-mortems** – PAKT detects incident post-mortems and applies the voice rules to them. No reviewer skill covers them yet.
+- **Providers** – Gemini, Groq, and Anthropic work through one fallback chain. The tests cover them with fake HTTP responses only. No live call has checked the default model IDs yet.
 - **Next** – Run `pakt-eval review-eval --mode model` with a key, then review the labels with a second writer.

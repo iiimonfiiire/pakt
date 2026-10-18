@@ -24,7 +24,7 @@ Short definitions of the terms used in PAKT and its docs, in alphabetical order.
 - **Human gate** – A step that only a person can complete. In PAKT, release notes stay a draft until a named person approves them.
 - **Hypothesis** – A prediction, written before a run, about what a prompt change will do. A run can then confirm it or prove it wrong.
 - **Inferred** – A label for any claim that rests on keywords, dates, or reasoning instead of a literal match. Confirm an inferred claim before you act on it.
-- **Judgment rule** – A rule without a deterministic check. Claude or a person applies it.
+- **Judgment rule** – A rule without a deterministic check. A model or a person applies it.
 - **Label** – The hand-written answer for one test item, such as the rule IDs that a document breaks.
 - **Latency** – The time a model call takes from request to response.
 - **Leakage** – Test items appearing in the prompt or training data. Leakage inflates scores, because the model has seen the answers.
