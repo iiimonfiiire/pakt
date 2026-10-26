@@ -4,7 +4,9 @@
 
 PAKT ships as a Claude Code plugin with eleven skills for documentation teams, technical writers, and knowledge managers. A command-line tool, `pakt`, runs the deterministic checks that the skills build on. An eval harness, `pakt-eval`, measures how accurate the reviewers and the rewriter are.
 
-The default style guide is Signal, a guide for clear, concise, and easy-to-scan writing. A team can swap in its own guide without touching any skill.
+The default style guide is [Signal](https://github.com/iiimonfiiire/signal-style-guide), a guide for clear, concise, and easy-to-scan writing. A team can swap in its own guide without touching any skill.
+
+For a short overview of how Signal and PAKT work together, see [Style as code: Signal and PAKT](https://iiimonfiiire.github.io/daniel-avissar-portfolio/what-i-do/style-as-code/).
 
 ## Skill catalog
 
