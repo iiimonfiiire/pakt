@@ -230,3 +230,7 @@ Every test runs offline with fake model clients. For the walkthrough, see [the e
 - **Post-mortems** – PAKT detects incident post-mortems and applies the voice rules to them. No reviewer skill covers them yet.
 - **Providers** – Gemini, Groq, and Anthropic work through one fallback chain. The tests cover them with fake HTTP responses only. No live call has checked the default model IDs yet.
 - **Next** – Run `pakt-eval review-eval --mode model` with a key, then review the labels with a second writer.
+
+## License
+
+PAKT is released under the [MIT License](./LICENSE).
