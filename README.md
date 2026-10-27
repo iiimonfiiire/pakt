@@ -35,6 +35,8 @@ Each review has two layers:
 
 The rules file of the active guide decides which rules exist and which layer runs each one. It also sets every threshold for each content type.
 
+Signal treats cognitive load as a quality bar, and both layers check for it. The checks flag long paragraphs and pressure words that push the reader to rush. The judgment layer checks that each step names its visible result, and that no error message blames the reader.
+
 ## Install
 
 You need Python 3.11 or later and Claude Code.
@@ -138,7 +140,9 @@ source = "vale:Google@v0.6.1"
 prose = "https://developers.google.com/style"
 ```
 
-PAKT caches fetched files in your user cache folder. Set `PAKT_CACHE_DIR` to move it. A pinned source never refetches, so PAKT works offline after the first fetch. A commit SHA, a version tag, or a `sha256` value counts as a pin. An unpinned source, such as a `main` branch, works too, but PAKT warns that its results are not reproducible.
+PAKT caches fetched files in your user cache folder. Set `PAKT_CACHE_DIR` to move it. A pinned source never refetches, so PAKT works offline after the first fetch.
+
+A commit SHA, a version tag, or a `sha256` value counts as a pin. An unpinned source, such as a `main` branch, works too, but PAKT warns that its results are not reproducible.
 
 Run `pakt guide show` to see the active guide and its source. Run `pakt guide fetch` to download it ahead of time.
 

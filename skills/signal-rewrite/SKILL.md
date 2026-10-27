@@ -15,6 +15,7 @@ Follow `reference/active-guide.md` at the PAKT root, and read the active guide i
 
 - **Keep the shape** – An error message stays an error message, and a UI string stays short. A release note keeps its version and sections.
 - **Keep the facts** – Before you write, list every fact in the source. After you write, check that each one survived unchanged.
+- **Keep it calm** – Drop pressure words, keep each step's visible result, and never blame the reader in an error.
 - **Ask about gaps** – When a sentence is ambiguous, ask instead of guessing.
 
 ## 3. Check the result

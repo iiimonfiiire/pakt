@@ -37,6 +37,7 @@ The command checks each string on its own. Keep every finding. Each one is a fac
 Read each string where it appears in the product, not as prose. Check every judgment rule from the guide and every microcopy requirement without a `check`. These questions help:
 
 - **Errors** – Does each error say what happened and what to do next?
+- **Blame** – Does each error make the system or the object the subject, never the reader? An error that says the system could not verify the key passes. "You entered an invalid key" fails.
 - **Buttons** – Does each button start with a verb that names the result of the click?
 - **Tooltips** – Does each tooltip add something that the label does not already say?
 - **Consistency** – Does one action keep one name across every string?

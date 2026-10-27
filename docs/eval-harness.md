@@ -135,7 +135,9 @@ LLM judges have known biases. The harness does not remove them. It reduces them 
 - **Drift and noise** – The judge runs at temperature 0 with a fixed rubric file. The report records the rubric hash, so a changed rubric is visible.
 - **Unknown accuracy** – Nobody knows how often the judge is right until someone checks. The command `pakt-eval judge-check` runs the judge on eight hand-labeled pairs and reports how often it agrees with the labels.
 
-The spot-check pairs live in `evals/data/judge_spot_check.jsonl`. They cover clear cases: a clean rewrite, a dropped fact, an invented fact, and a contradiction. Others cover a changed number and faithful but wordy text. The toolkit author wrote the labels. Relabel them yourself before you rely on the agreement number. A judge can only agree with labels that are right.
+The spot-check pairs live in `evals/data/judge_spot_check.jsonl`. They cover clear cases: a clean rewrite, a dropped fact, an invented fact, and a contradiction. Others cover a changed number and faithful but wordy text.
+
+The toolkit author wrote the labels. Relabel them yourself before you rely on the agreement number. A judge can only agree with labels that are right.
 
 Eight pairs are a smoke test, not a validation. A judge that fails them does not work. A judge that passes them still needs a larger check before you trust small score differences.
 

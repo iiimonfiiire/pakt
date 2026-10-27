@@ -393,6 +393,56 @@ def check_link_text(text: str) -> RuleResult:
     return _result("link_text", [f"generic link text: {f}" for f in found])
 
 
+_URGENCY_WORDS = ("immediately", "urgent", "urgently", "right away", "act now", "catastrophic", "disastrous", "panic")
+
+
+def check_urgency_language(text: str, words: Iterable[str] = _URGENCY_WORDS) -> RuleResult:
+    """Flag pressure words. Severity tiers and real deadlines are facts, so neither appears in the list."""
+    pattern = re.compile(rf"\b(?:{'|'.join(re.escape(w) for w in words)})\b", re.I)
+    found = [m.group(0) for m in pattern.finditer(mask_code(text))]
+    return _result("calm_tone", [f"urgency language: {w}" for w in found])
+
+
+def _is_prose_line(line: str) -> bool:
+    if not line.strip() or line.startswith((" ", "\t")):
+        return False
+    if _HEADING.match(line) or _LIST_MARKER.match(line) or _BLOCKQUOTE.match(line):
+        return False
+    return not line.lstrip().startswith(("|", "<"))
+
+
+def paragraphs(text: str) -> list[str]:
+    """Prose paragraphs: runs of plain lines. Headings, lists and their indented lines, callouts, tables, and HTML end a run."""
+    runs: list[str] = []
+    current: list[str] = []
+    in_list = False
+    for line in mask_code(strip_front_matter(text)).splitlines():
+        if _LIST_MARKER.match(line):
+            in_list = True
+        elif not line.strip():
+            in_list = False
+        if not in_list and _is_prose_line(line):
+            current.append(line.strip())
+            continue
+        if current:
+            runs.append(" ".join(current))
+            current = []
+    if current:
+        runs.append(" ".join(current))
+    return runs
+
+
+def check_paragraph_length(text: str, max_sentences: int = 4) -> RuleResult:
+    """Flag prose paragraphs longer than the cap."""
+    found = paragraphs(text)
+    violations = []
+    for para in found:
+        n = len(split_sentences(para))
+        if n > max_sentences:
+            violations.append(f"{n} sentences: {_clip(para)}")
+    return _result("paragraph_length", violations, applicable=bool(found))
+
+
 def check_key_terms(text: str, must_keep: Iterable[str]) -> RuleResult:
     """Meaning proxy: literal identifiers from the source must survive verbatim."""
     terms = list(must_keep)
@@ -545,6 +595,8 @@ CHECKS: dict[str, CheckFn] = {
     "citations": lambda t, p: check_citations(t, p.get("footnotes", "deprecated")),
     "all_caps": lambda t, p: check_all_caps(t, p.get("words", _EMPHASIS_CAPS)),
     "ui_case": lambda t, p: check_ui_case(t, p.get("_kind"), p.get("kinds", ())),
+    "urgency_language": lambda t, p: check_urgency_language(t, p.get("words", _URGENCY_WORDS)),
+    "paragraph_length": lambda t, p: check_paragraph_length(t, int(p.get("max_sentences", 4))),
 }
 
 
@@ -590,4 +642,5 @@ __all__ = [
     "check_hedging", "check_second_person", "check_ampersand", "check_bold_leadin", "check_latin_abbreviations",
     "check_link_text", "check_key_terms", "check_heading_case", "check_banned_terms", "check_first_person",
     "check_semicolons", "check_citations", "check_all_caps", "check_ui_case", "proper_nouns",
+    "check_urgency_language", "check_paragraph_length",
 ]
