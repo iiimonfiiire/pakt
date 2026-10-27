@@ -94,6 +94,43 @@ def test_oxford_comma_prepositional_tails(text, ok):
     assert r.check_oxford_comma(text).passed is ok
 
 
+@pytest.mark.parametrize("text, ok", [
+    ("Rotate the key before 1 Nov 2026.", True),
+    ("Rotate the key immediately.", False),
+    ("This is URGENT, so act now.", False),
+    ("Severity: Critical. Patch to v2.4.1.", True),
+    ("Run `panic --help` for options.", True),
+])
+def test_urgency_language(text, ok):
+    assert r.check_urgency_language(text).passed is ok
+
+
+FIVE = "One. Two. Three. Four. Five."
+
+
+def test_paragraph_length():
+    assert not r.check_paragraph_length(FIVE).passed
+    assert r.check_paragraph_length("One. Two. Three. Four.").passed
+    assert r.check_paragraph_length(FIVE, max_sentences=5).passed
+
+
+@pytest.mark.parametrize("text", [
+    f"## Heading\n- {FIVE}\n",
+    f"> **Note:** {FIVE}\n",
+    f"1. Step one.\n   {FIVE}\n",
+    f"| a | b |\n| {FIVE} | x |\n",
+    f"```\n{FIVE}\n```\n",
+])
+def test_paragraph_length_skips_non_prose(text):
+    assert r.check_paragraph_length(text).passed
+
+
+def test_paragraph_length_splits_runs():
+    assert r.check_paragraph_length("## Setup\nOne. Two.\n\n- Item.\n\nThree. Four. Five.\n\nSix. Seven.\n").passed
+    assert not r.check_paragraph_length(f"## Setup\n{FIVE}\n- Item.\n").passed
+    assert not r.check_paragraph_length("## Only a heading\n").applicable
+
+
 # ------------------------------------------------------- per-type resolution
 
 def _rule(type_id, rule_id):
@@ -118,6 +155,11 @@ def test_contractions_only_allowed_in_microcopy():
 ])
 def test_first_person_by_type(type_id, allowed):
     assert (_rule(type_id, "first_person") is None) is allowed
+
+
+def test_paragraph_cap_skips_microcopy():
+    assert _rule("ui_microcopy", "paragraph_length") is None
+    assert _rule("kb_task", "paragraph_length").params["max_sentences"] == 4
 
 
 def test_semicolon_scope_by_type():

@@ -4,7 +4,7 @@
 # The default style guide: Signal, fetched from its public repo and pinned to a release tag.
 # Keep DEFAULT_SOURCE in pakt/sources.py in step with this pin.
 [styleguide]
-source = "github:iiimonfiiire/signal-style-guide@v2026.10.06"
+source = "github:iiimonfiiire/signal-style-guide@v2026.10.27"
 rules = "signal.rules.toml"
 
 # Model providers, tried in order. A provider without an API key in .env is skipped.

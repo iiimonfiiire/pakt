@@ -23,7 +23,7 @@ from pathlib import Path
 from .config import ConfigError, package_root, read_toml
 
 DEFAULT_SOURCE = {
-    "source": "github:iiimonfiiire/signal-style-guide@v2026.10.06",
+    "source": "github:iiimonfiiire/signal-style-guide@v2026.10.27",
     "rules": "signal.rules.toml",
 }
 ALIASES = {"signal": DEFAULT_SOURCE}

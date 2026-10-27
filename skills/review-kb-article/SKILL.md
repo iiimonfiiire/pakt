@@ -44,6 +44,8 @@ Read the article as its reader would: someone in the middle of a task who wants 
 - **Order** – Do the sections follow the order that the subtype requires, with nothing out of place?
 - **Steps** – In a walkthrough, does each step match one UI state change, with closely coupled actions combined?
 - **Verbs** – Does each step use the right verb for its interaction type?
+- **Outcomes** – When a step changes the screen, does the step name the visible result?
+- **Warnings** – Does each Warning callout cover a destructive or irreversible action, and name the recovery step?
 - **Learning** – Does a tutorial open with measurable objectives? Does a concept guide stay free of steps? Does a quickstart skip theory?
 - **Scope** – In a troubleshooting guide, does the fix depend on a version or a platform that the guide never names?
 - **Terms** – Does one concept keep one name from start to finish?
