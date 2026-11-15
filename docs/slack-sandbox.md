@@ -133,10 +133,10 @@ Each turn sends channel text to the model server. Use a server you control.
 A real Slack app has one bot token. Add `--single-token` and every coworker posts through it, each under its own display name, such as "Riley (PM)".
 
 ```bash
-export SLACK_API_BASE=https://slack.com/api
-export SLACK_BOT_TOKEN=<the bot token>
 pakt-sandbox slack office --single-token --interval 30
 ```
+
+The command reads `SLACK_API_BASE` and `SLACK_BOT_TOKEN` from a `.env` file in the current directory. Variables already set in your shell take priority.
 
 Notes:
 

@@ -85,6 +85,31 @@ def test_viewer_page_served(base):
     assert "/_sim/feed" in html
 
 
+def test_cli_reads_token_from_dotenv(tmp_path, monkeypatch):
+    from pakt_sandbox import cli
+
+    (tmp_path / ".env").write_text("SLACK_BOT_TOKEN=xoxb-from-file\n")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)
+    seen = {}
+
+    class Stop(Exception):
+        pass
+
+    class FakeOffice:
+        def __init__(self, base, backend, seed=None, token=None):
+            seen["token"] = token
+
+        def run(self, turns, interval):
+            raise Stop
+
+    monkeypatch.setattr("pakt_sandbox.office.runner.Office", FakeOffice)
+    with pytest.raises(Stop):
+        cli.main(["slack", "office", "--single-token"])
+    assert seen["token"] == "xoxb-from-file"
+    monkeypatch.delenv("SLACK_BOT_TOKEN", raising=False)  # load_dotenv set it for the process
+
+
 def test_clean_strips_role_in_display_prefix():
     assert clean("Riley (PM): Ship it.", "sam") == "Ship it."
 

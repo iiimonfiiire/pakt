@@ -17,6 +17,8 @@ import urllib.error
 import urllib.request
 from pathlib import Path
 
+from dotenv import load_dotenv
+
 from .slack_sim.server import serve
 from .slack_sim.store import FIXTURE
 
@@ -68,6 +70,7 @@ def seed(base: str, token: str, fixture: Path = FIXTURE) -> int:
 
 
 def main(argv: list[str] | None = None) -> None:
+    load_dotenv(Path.cwd() / ".env")  # real environment variables win over the file
     parser = argparse.ArgumentParser(prog="pakt-sandbox")
     sub = parser.add_subparsers(dest="target", required=True)
     slack = sub.add_parser("slack").add_subparsers(dest="action", required=True)
