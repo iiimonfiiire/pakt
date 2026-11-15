@@ -71,9 +71,25 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--host", default="127.0.0.1")
     s.add_argument("--port", type=int, default=8765)
     slack.add_parser("seed", help="post the fixture to SLACK_API_BASE")
+    o = slack.add_parser("office", help="let AI coworker bots chat in the simulator")
+    o.add_argument("--turns", type=int, default=None, help="stop after N turns (default: run until Ctrl-C)")
+    o.add_argument("--interval", type=float, default=5.0, help="seconds between turns")
+    o.add_argument("--model", default=os.environ.get("OLLAMA_MODEL", "llama3.2:1b"))
+    o.add_argument("--ollama", default=os.environ.get("OLLAMA_BASE", "http://127.0.0.1:11434"))
+    o.add_argument("--seed", type=int, default=None)
     args = parser.parse_args(argv)
 
-    if args.action == "serve":
+    if args.action == "office":
+        from .office.backends import OllamaBackend
+        from .office.runner import Office
+
+        base = os.environ.get("SLACK_API_BASE", DEFAULT_BASE)
+        office = Office(base, OllamaBackend(args.ollama, args.model), seed=args.seed)
+        try:
+            office.run(args.turns, args.interval)
+        except KeyboardInterrupt:
+            pass
+    elif args.action == "serve":
         server = serve(args.host, args.port)
         print(f"Slack simulator on http://{args.host}:{args.port}/api  (token: xoxb-sim-bot)")
         try:

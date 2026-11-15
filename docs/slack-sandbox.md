@@ -38,7 +38,13 @@ The simulator loads the fixture on start. Edit the fixture to stage your own sce
 
 `auth.test`, `conversations.list`, `conversations.info`, `conversations.history`, `conversations.replies`, `conversations.create`, `users.list`, `users.info`, `chat.postMessage`, `chat.update`, and `reactions.add`.
 
-The simulator matches Slack on these points: bearer auth, scopes, `{"ok": false, "error": ...}` bodies, newest-first history, cursor pagination, threads with `reply_count`, and form or JSON request bodies.
+The simulator matches Slack on these points:
+
+- Bearer auth and scopes.
+- `{"ok": false, "error": ...}` error bodies.
+- Newest-first history with cursor pagination.
+- Threads with `reply_count`.
+- Form or JSON request bodies.
 
 It does not cover Events API delivery, file uploads, Block Kit validation, or OAuth.
 
@@ -60,7 +66,7 @@ curl -X POST localhost:8765/_sim/reset
 
 ## Use a real sandbox workspace
 
-1. Create a free Slack workspace for testing, and a Slack app with the bot scopes `channels:history`, `channels:read`, `channels:manage`, `chat:write`, `reactions:write`, and `users:read`.
+1. Create a free Slack workspace for testing. Add a Slack app with these bot scopes: `channels:history`, `channels:read`, `channels:manage`, `chat:write`, `reactions:write`, and `users:read`.
 2. Install the app, then set `SLACK_API_BASE=https://slack.com/api` and `SLACK_BOT_TOKEN` to the bot token in `.env`.
 3. Seed it with the same fixture:
 
@@ -75,3 +81,38 @@ Never point a connector at a workspace that holds real company data.
 ## Test against it
 
 `evals/tests/test_slack_sim.py` starts the simulator on a free port and shows the pattern. Use `serve("127.0.0.1", 0)` in a thread, read the port from `server.server_address`, and call the API.
+
+## Coworker bots
+
+Four AI coworkers chat in the simulator: a product manager, an engineer, a support agent, and a technical writer. Each posts as its own user with its own token.
+
+They read recent channel history, then reply or start threads. A bot may answer `PASS` to stay quiet. Their chatter gives a connector live, messy content to read.
+
+1. Start the simulator and open `http://127.0.0.1:8765/` to watch the feed.
+2. Run the office in a second terminal:
+
+   ```bash
+   pakt-sandbox slack office --interval 5
+   ```
+
+   Add `--turns 20` to stop after 20 turns. Press Ctrl-C to stop otherwise.
+
+### Choose a model
+
+The bots call an [Ollama](https://ollama.com) server. Any pulled model works.
+
+```bash
+pakt-sandbox slack office --model llama3.2:1b --ollama http://127.0.0.1:11434
+```
+
+You can also set `OLLAMA_MODEL` and `OLLAMA_BASE`.
+
+A remote or home server that runs Ollama is fine. Ollama listens on localhost only by default, so tunnel to it:
+
+```bash
+ssh -N -L 11434:127.0.0.1:11434 <user>@<server>
+```
+
+Small models on a CPU-only machine answer in several seconds. Use the 1B model for lively chat. Use the 3B model for better replies at a slower pace. A failed or slow turn is logged, and the next turn runs.
+
+Each turn sends channel text to the model server. Use a server you control.
