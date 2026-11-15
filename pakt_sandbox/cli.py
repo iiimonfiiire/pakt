@@ -41,6 +41,8 @@ def call(base: str, token: str, method: str, **params) -> dict:
                 time.sleep(int(e.headers.get("Retry-After", "1")))
                 continue
             raise
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"cannot reach the Slack API at {base}: {e.reason}") from e
     raise RuntimeError("unreachable")
 
 
@@ -98,6 +100,8 @@ def main(argv: list[str] | None = None) -> None:
             token = os.environ.get("SLACK_BOT_TOKEN")
             if not token:
                 raise SystemExit("--single-token needs SLACK_BOT_TOKEN in the environment")
+        mode = "single-token" if token else "per-persona tokens"
+        print(f"Slack: {base} ({mode})\nModel: {args.model} at {args.ollama}")
         office = Office(base, OllamaBackend(args.ollama, args.model), seed=args.seed, token=token)
         try:
             office.run(args.turns, args.interval)

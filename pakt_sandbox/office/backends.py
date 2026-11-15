@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import urllib.error
 import urllib.request
 from typing import Protocol
 
@@ -28,8 +29,11 @@ class OllamaBackend:
             f"{self.base}/api/chat", data=json.dumps(body).encode(),
             headers={"Content-Type": "application/json"},
         )
-        with urllib.request.urlopen(req, timeout=self.timeout) as resp:
-            return json.load(resp)["message"]["content"]
+        try:
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                return json.load(resp)["message"]["content"]
+        except urllib.error.URLError as e:
+            raise ConnectionError(f"cannot reach Ollama at {self.base}: {e.reason}") from e
 
 
 class ScriptedBackend:
