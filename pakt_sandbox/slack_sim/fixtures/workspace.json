@@ -1,0 +1,45 @@
+{
+  "team": {"id": "T0SIM0001", "name": "Acme Sim", "domain": "acme-sim"},
+  "tokens": {
+    "xoxb-sim-bot": {"user": "U0BOT0001", "scopes": ["channels:history", "channels:read", "chat:write", "reactions:write", "users:read", "channels:manage"]},
+    "xoxb-sim-readonly": {"user": "U0BOT0001", "scopes": ["channels:history", "channels:read", "users:read"]}
+  },
+  "users": [
+    {"id": "U0BOT0001", "name": "pakt-bot", "real_name": "PAKT Bot", "is_bot": true, "profile": {"display_name": "pakt"}},
+    {"id": "U0PM00001", "name": "riley.pm", "real_name": "Riley Park", "is_bot": false, "profile": {"display_name": "riley"}},
+    {"id": "U0ENG0001", "name": "sam.eng", "real_name": "Sam Ortiz", "is_bot": false, "profile": {"display_name": "sam"}},
+    {"id": "U0SUP0001", "name": "jo.support", "real_name": "Jo Lindqvist", "is_bot": false, "profile": {"display_name": "jo"}},
+    {"id": "U0DOC0001", "name": "kit.docs", "real_name": "Kit Amari", "is_bot": false, "profile": {"display_name": "kit"}}
+  ],
+  "channels": [
+    {
+      "id": "C0REL0001", "name": "releases", "topic": "Release announcements and changelog drafts",
+      "messages": [
+        {"user": "U0PM00001", "hours_ago": 120, "text": "v2.4 is out! We've added SSO via SAML, fixed the thing where exports timed out, and you can't use the old /v1/reports endpoint anymore. Please don't forget to update your integrations ASAP!!"},
+        {"user": "U0ENG0001", "hours_ago": 96, "text": "Draft changelog for 2.5:\n- Added bulk-delete for saved filters\n- Fixed: dashboard widgets were not refreshing after a timezone change\n- Changed: API rate limit raised from 60 to 120 requests per minute\n- Removed: legacy CSV export (use the new export API)", "replies": [
+          {"user": "U0DOC0001", "hours_ago": 95, "text": "Can we get the PR links on each line? Needed for the notes."},
+          {"user": "U0ENG0001", "hours_ago": 94, "text": "Sure: bulk-delete #412, widgets #418, rate limit #420, CSV #409."}
+        ]},
+        {"user": "U0PM00001", "hours_ago": 24, "text": "Heads up: 2.5 ships Thursday. Notes owner is Kit."}
+      ]
+    },
+    {
+      "id": "C0SUP0001", "name": "support-answers", "topic": "Answers worth turning into KB articles",
+      "messages": [
+        {"user": "U0SUP0001", "hours_ago": 72, "text": "Customer asked how to reset an API key. Answer I gave: Go to Settings, then API, click the key, hit Rotate. The old key stops working right away so you gotta update your scripts first or they'll break. Don't worry, it's super easy!", "replies": [
+          {"user": "U0SUP0001", "hours_ago": 71, "text": "Third time this week. Someone should write this up."}
+        ]},
+        {"user": "U0SUP0001", "hours_ago": 48, "text": "Webhook retries: we retry 5 times over 30 minutes. After that the event is dropped and shows as Failed in Settings > Webhooks > Deliveries. Customers keep asking where to see this."},
+        {"user": "U0ENG0001", "hours_ago": 47, "text": "Correction: retries are 8 over 2 hours since 2.3. The Deliveries page is right."}
+      ]
+    },
+    {
+      "id": "C0DOC0001", "name": "docs-feedback", "topic": "Reader feedback and doc requests",
+      "messages": [
+        {"user": "U0DOC0001", "hours_ago": 30, "text": "Reader says the SSO setup page never says what the Entity ID field is. They got stuck at step 4."},
+        {"user": "U0SUP0001", "hours_ago": 10, "text": "Error text on the export screen reads 'Oops! Something went wrong, you did something invalid.' Can we change it?"}
+      ]
+    },
+    {"id": "C0GEN0001", "name": "general", "topic": "Company-wide", "messages": []}
+  ]
+}

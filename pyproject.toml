@@ -18,10 +18,11 @@ dev = ["pytest>=8"]
 [project.scripts]
 pakt = "pakt.cli:main"
 pakt-eval = "pakt_evals.cli:main"
+pakt-sandbox = "pakt_sandbox.cli:main"
 
 [tool.setuptools.packages.find]
 where = [".", "evals"]
-include = ["pakt", "pakt.*", "pakt_evals*"]
+include = ["pakt", "pakt.*", "pakt_evals*", "pakt_sandbox*"]
 
 [tool.pytest.ini_options]
 testpaths = ["evals/tests"]
