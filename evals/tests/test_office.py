@@ -83,3 +83,51 @@ def test_bot_tokens_cannot_create_channels(base):
 def test_viewer_page_served(base):
     html = urllib.request.urlopen(f"{base}/").read().decode()
     assert "/_sim/feed" in html
+
+
+def test_clean_strips_role_in_display_prefix():
+    assert clean("Riley (PM): Ship it.", "sam") == "Ship it."
+
+
+def test_single_token_mode_posts_with_display_names(base):
+    office = Office(f"{base}/api", ScriptedBackend(["Noted."]), seed=1, log=lambda *_: None,
+                    token="xoxb-sim-bot")
+    before = len(feed(base))
+    office.run(turns=4, interval=0)
+    new = feed(base)[before:]
+    assert len(new) == 4
+    assert {m["user"] for m in new} <= {"Riley (PM)", "Sam (Eng)", "Jo (Support)", "Kit (Docs)"}
+
+
+def test_single_token_prompt_shows_display_names(base):
+    backend = ScriptedBackend(["Noted."])
+    office = Office(f"{base}/api", backend, seed=1, log=lambda *_: None, token="xoxb-sim-bot")
+    office.run(turns=12, interval=0)
+    assert any(f"({role}):" in p for p in backend.prompts for role in ("PM", "Eng", "Support", "Docs"))
+
+
+def test_username_ignored_without_customize_scope(base):
+    def post(token, **kw):
+        return call(f"{base}/api", token, "chat.postMessage", **kw)
+
+    plain = post("xoxb-sim-riley", channel="C0GEN0001", text="hi", username="Impostor")
+    assert "username" not in plain["message"]
+    custom = post("xoxb-sim-bot", channel="C0GEN0001", text="hi", username="Custom")
+    assert custom["message"]["username"] == "Custom"
+
+
+def test_not_in_channel_joins_then_retries(monkeypatch):
+    from pakt_sandbox.office import runner
+
+    seen = []
+
+    def fake(base, token, method, **params):
+        seen.append(method)
+        if seen.count("conversations.history") == 1 and method == "conversations.history":
+            return {"ok": False, "error": "not_in_channel"}
+        return {"ok": True, "messages": []}
+
+    monkeypatch.setattr(runner, "call", fake)
+    office = Office("http://x/api", ScriptedBackend(["x"]), token="t", log=lambda *_: None)
+    office._call(office.personas[0], "conversations.history", channel="C1")
+    assert seen == ["conversations.history", "conversations.join", "conversations.history"]

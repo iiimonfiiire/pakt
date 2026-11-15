@@ -24,6 +24,7 @@ SCOPES = {
     "conversations.history": "channels:history",
     "conversations.replies": "channels:history",
     "conversations.create": "channels:manage",
+    "conversations.join": "channels:join",
     "users.list": "users:read",
     "users.info": "users:read",
     "chat.postMessage": "chat:write",
@@ -196,6 +197,10 @@ def make_handler(state: SimState):
                                   p.get("oldest"), p.get("latest"))
             if method == "conversations.replies":
                 return ws.replies(p.get("channel", ""), p.get("ts", ""))
+            if method == "conversations.join":
+                if p.get("channel") not in ws.channels:
+                    raise SlackError("channel_not_found")
+                return {"channel": ws.channels[p["channel"]]}
             if method == "conversations.create":
                 return {"channel": ws.create_channel(p.get("name", ""))}
             if method == "users.list":
@@ -205,7 +210,9 @@ def make_handler(state: SimState):
                     raise SlackError("user_not_found")
                 return {"user": ws.users[p["user"]]}
             if method == "chat.postMessage":
-                msg = ws.post(p.get("channel", ""), p.get("text", ""), me, p.get("thread_ts"))
+                # Like Slack, ignore a custom username unless the token has chat:write.customize.
+                custom = p.get("username") if "chat:write.customize" in grant["scopes"] else None
+                msg = ws.post(p.get("channel", ""), p.get("text", ""), me, p.get("thread_ts"), custom)
                 return {"channel": p["channel"], "ts": msg["ts"], "message": msg}
             if method == "chat.update":
                 msg = ws.update(p.get("channel", ""), p.get("ts", ""), p.get("text", ""))
@@ -239,7 +246,8 @@ def make_handler(state: SimState):
                     for m in ws.messages[cid]:
                         who = ws.users.get(m["user"], {})
                         out.append({"channel": ch["name"], "ts": m["ts"], "thread_ts": m.get("thread_ts"),
-                                    "user": who.get("real_name", m["user"]), "text": m["text"]})
+                                    "user": m.get("username") or who.get("real_name", m["user"]),
+                                    "text": m["text"]})
                 out.sort(key=lambda m: float(m["ts"]))
                 return self._send(200, {"ok": True, "messages": out})
             if action == "calls":

@@ -66,15 +66,26 @@ curl -X POST localhost:8765/_sim/reset
 
 ## Use a real sandbox workspace
 
-1. Create a free Slack workspace for testing. Add a Slack app with these bot scopes: `channels:history`, `channels:read`, `channels:manage`, `chat:write`, `reactions:write`, and `users:read`.
-2. Install the app, then set `SLACK_API_BASE=https://slack.com/api` and `SLACK_BOT_TOKEN` to the bot token in `.env`.
+1. Create a free Slack workspace for testing. Add a Slack app with these bot scopes:
+   - `channels:history`, `channels:read`, `channels:manage`, and `channels:join`
+   - `chat:write`, `chat:write.customize`, and `chat:write.public`
+   - `reactions:write` and `users:read`
+2. Install the app, then set these in `.env`:
+
+   ```text
+   SLACK_API_BASE=https://slack.com/api
+   SLACK_BOT_TOKEN=<the bot token>
+   ```
+
 3. Seed it with the same fixture:
 
    ```bash
    pakt-sandbox slack seed
    ```
 
-   The seeder creates missing channels and posts every fixture message through the Web API. Run it once, because it does not deduplicate messages.
+   The seeder creates missing channels and posts every fixture message through the Web API. With `chat:write.customize`, each message shows its fixture author's name. Run the seeder once, because it does not deduplicate messages.
+
+To let the coworker bots chat in the real workspace, see [Coworker bots in real Slack](#coworker-bots-in-real-slack).
 
 Never point a connector at a workspace that holds real company data.
 
@@ -116,3 +127,20 @@ ssh -N -L 11434:127.0.0.1:11434 <user>@<server>
 Small models on a CPU-only machine answer in several seconds. Use the 1B model for lively chat. Use the 3B model for better replies at a slower pace. A failed or slow turn is logged, and the next turn runs.
 
 Each turn sends channel text to the model server. Use a server you control.
+
+### Coworker bots in real Slack
+
+A real Slack app has one bot token. Add `--single-token` and every coworker posts through it, each under its own display name, such as "Riley (PM)".
+
+```bash
+export SLACK_API_BASE=https://slack.com/api
+export SLACK_BOT_TOKEN=<the bot token>
+pakt-sandbox slack office --single-token --interval 30
+```
+
+Notes:
+
+- The bots join channels they are not in, and they start conversations in empty channels.
+- The coworkers share one bot identity. Slack shows the custom names with an APP tag.
+- Slack limits posts to about one per second per channel. A 30-second interval stays far below it.
+- The simulator's feed page does not apply here. Slack is the viewer.

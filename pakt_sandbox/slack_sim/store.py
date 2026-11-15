@@ -117,12 +117,16 @@ class Workspace:
             thread.sort(key=lambda m: float(m["ts"]))
             return {"messages": copy.deepcopy(thread), "has_more": False}
 
-    def post(self, cid: str, text: str, user: str, thread_ts: str | None = None) -> dict:
+    def post(self, cid: str, text: str, user: str, thread_ts: str | None = None,
+             username: str | None = None) -> dict:
         with self._lock:
             self._channel(cid)
             if not text:
                 raise SlackError("no_text")
             msg = {"type": "message", "user": user, "text": text, "ts": self._ts()}
+            if username:
+                msg["username"] = username
+                msg["bot_id"] = "B0SIM0001"
             if thread_ts:
                 self._find(cid, thread_ts)
                 msg["thread_ts"] = thread_ts

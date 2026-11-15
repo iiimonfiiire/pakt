@@ -1,7 +1,7 @@
 {
   "team": {"id": "T0SIM0001", "name": "Acme Sim", "domain": "acme-sim"},
   "tokens": {
-    "xoxb-sim-bot": {"user": "U0BOT0001", "scopes": ["channels:history", "channels:read", "chat:write", "reactions:write", "users:read", "channels:manage"]},
+    "xoxb-sim-bot": {"user": "U0BOT0001", "scopes": ["channels:history", "channels:read", "chat:write", "reactions:write", "users:read", "channels:manage", "channels:join", "chat:write.customize"]},
     "xoxb-sim-readonly": {"user": "U0BOT0001", "scopes": ["channels:history", "channels:read", "users:read"]},
     "xoxb-sim-riley": {"user": "U0PM00001", "scopes": ["channels:history", "channels:read", "chat:write", "reactions:write", "users:read"]},
     "xoxb-sim-sam": {"user": "U0ENG0001", "scopes": ["channels:history", "channels:read", "chat:write", "reactions:write", "users:read"]},

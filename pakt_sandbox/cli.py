@@ -45,6 +45,7 @@ def call(base: str, token: str, method: str, **params) -> dict:
 def seed(base: str, token: str, fixture: Path = FIXTURE) -> int:
     """Post the fixture's channels and messages. Returns the message count."""
     data = json.loads(fixture.read_text(encoding="utf-8"))
+    people = {u["id"]: u["real_name"] for u in data["users"]}
     existing = {c["name"]: c["id"] for c in call(base, token, "conversations.list")["channels"]}
     posted = 0
     for ch in data["channels"]:
@@ -55,10 +56,13 @@ def seed(base: str, token: str, fixture: Path = FIXTURE) -> int:
                 raise SystemExit(f"cannot create #{ch['name']}: {res.get('error')}")
             cid = res["channel"]["id"]
         for m in ch["messages"]:
-            res = call(base, token, "chat.postMessage", channel=cid, text=m["text"])
+            # Shown as the author when the token allows custom names.
+            res = call(base, token, "chat.postMessage", channel=cid, text=m["text"],
+                       username=people[m["user"]])
             posted += 1
             for r in m.get("replies", []):
-                call(base, token, "chat.postMessage", channel=cid, text=r["text"], thread_ts=res["ts"])
+                call(base, token, "chat.postMessage", channel=cid, text=r["text"],
+                     thread_ts=res["ts"], username=people[r["user"]])
                 posted += 1
     return posted
 
@@ -77,6 +81,8 @@ def main(argv: list[str] | None = None) -> None:
     o.add_argument("--model", default=os.environ.get("OLLAMA_MODEL", "llama3.2:1b"))
     o.add_argument("--ollama", default=os.environ.get("OLLAMA_BASE", "http://127.0.0.1:11434"))
     o.add_argument("--seed", type=int, default=None)
+    o.add_argument("--single-token", "--real", dest="single_token", action="store_true",
+                   help="post every persona through SLACK_BOT_TOKEN with display names (real Slack)")
     args = parser.parse_args(argv)
 
     if args.action == "office":
@@ -84,7 +90,12 @@ def main(argv: list[str] | None = None) -> None:
         from .office.runner import Office
 
         base = os.environ.get("SLACK_API_BASE", DEFAULT_BASE)
-        office = Office(base, OllamaBackend(args.ollama, args.model), seed=args.seed)
+        token = None
+        if args.single_token:
+            token = os.environ.get("SLACK_BOT_TOKEN")
+            if not token:
+                raise SystemExit("--single-token needs SLACK_BOT_TOKEN in the environment")
+        office = Office(base, OllamaBackend(args.ollama, args.model), seed=args.seed, token=token)
         try:
             office.run(args.turns, args.interval)
         except KeyboardInterrupt:

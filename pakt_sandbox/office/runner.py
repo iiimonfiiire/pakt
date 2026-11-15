@@ -18,7 +18,8 @@ def clean(raw: str, handle: str) -> str | None:
     """Strip model habits. Returns None when the bot passes or says nothing."""
     text = raw.strip()
     names = "|".join(re.escape(n) for n in {handle, *(p.handle for p in PERSONAS)})
-    text = re.sub(rf"^(?:#?[\w-]+\n+)?(?:(?:\*\*)?(?:{names})(?:\*\*)?\s*:\s*)+", "", text, flags=re.I)
+    prefix = rf"(?:\*\*)?(?:{names})(?:\s*\([^)]*\))?(?:\*\*)?\s*:\s*"
+    text = re.sub(rf"^(?:#?[\w-]+\n+)?(?:{prefix})+", "", text, flags=re.I)
     text = text.strip().strip('"').strip()
     if not text or text.upper().startswith("PASS"):
         return None
@@ -27,15 +28,20 @@ def clean(raw: str, handle: str) -> str | None:
 
 class Office:
     def __init__(self, base: str, backend: Backend, personas: list[Persona] | None = None,
-                 seed: int | None = None, log=print):
-        self.base, self.backend, self.log = base, backend, log
+                 seed: int | None = None, log=print, token: str | None = None):
+        """With `token`, every persona posts through that one token, using display names."""
+        self.base, self.backend, self.log, self.token = base, backend, log, token
         self.personas = personas or PERSONAS
         self.rng = random.Random(seed)
         self.last_speaker: str | None = None
         self.names: dict[str, str] = {}
 
     def _call(self, p: Persona, method: str, **params) -> dict:
-        res = call(self.base, p.token, method, **params)
+        token = self.token or p.token
+        res = call(self.base, token, method, **params)
+        if res.get("error") == "not_in_channel" and params.get("channel"):
+            call(self.base, token, "conversations.join", channel=params["channel"])
+            res = call(self.base, token, method, **params)
         if not res.get("ok"):
             raise RuntimeError(f"{method} failed for {p.handle}: {res.get('error')}")
         return res
@@ -60,7 +66,7 @@ class Office:
         recent.reverse()  # oldest first
         target = recent[-1] if recent else None
         if target:
-            lines = [f"{self._name(p, m['user'])}: {m['text']}" for m in recent]
+            lines = [f"{m.get('username') or self._name(p, m['user'])}: {m['text']}" for m in recent]
             prompt = (
                 f"Channel #{name}. Recent messages, oldest first:\n" + "\n".join(lines)
                 + f"\n\nWrite your next message as {p.handle}."
@@ -73,6 +79,8 @@ class Office:
             self.log(f"[#{name}] {p.handle}: (pass)")
             return None
         params = {"channel": cid, "text": text}
+        if self.token:
+            params["username"] = p.display
         if target and (target.get("reply_count") or self.rng.random() < 0.3):
             params["thread_ts"] = target["thread_ts"] if "thread_ts" in target else target["ts"]
         msg = self._call(p, "chat.postMessage", **params)["message"]
